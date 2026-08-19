@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>wordsus — five-letter word war</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css?v=a11y-1" />
+    <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+  </head>
+  <body>
+    <div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div class="app" id="app">
+      <a class="skip-link" href="#main">Skip to game</a>
+      <header class="masthead">
+        <h1 class="logo">words<span>us</span></h1>
+        <nav class="mast-nav" aria-label="Match">
+          <button type="button" class="nav-text" id="rules-btn">rules</button>
+          <button type="button" class="nav-text nav-restart" id="restart-btn">
+            restart
+          </button>
+          <button type="button" class="btn-share" id="share-btn">
+            <span id="share-label" aria-live="polite">share</span>
+            <span class="icon icon-share" aria-hidden="true">
+              <img src="assets/share.svg" alt="" width="16" height="14" />
+            </span>
+          </button>
+        </nav>
+      </header>
+
+      <main id="main" class="game">
+        <div id="scoreboard" class="scoreboard" role="list" aria-label="Scores"></div>
+
+        <section
+          id="screen-setup"
+          class="screen is-active"
+          aria-labelledby="setup-title"
+        >
+          <p class="kicker" id="setup-kicker">GAME SETUP</p>
+          <h2 class="headline setup-title" id="setup-title">ADD PLAYERS</h2>
+          <div id="name-fields" class="setup-roster"></div>
+          <div class="setup-actions">
+            <button type="button" class="add-player" id="player-plus">
+              + ADD A NEW PLAYER
+            </button>
+            <button type="button" class="btn btn-amber btn-begin" id="start-btn">
+              BEGIN
+              <span class="icon icon-arrow" aria-hidden="true">
+                <img src="assets/arrow.svg" alt="" width="16" height="22" />
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section
+          id="screen-handoff"
+          class="screen"
+          hidden
+          aria-labelledby="handoff-name"
+        >
+          <div class="handoff">
+            <p class="kicker" id="handoff-kicker">Next up</p>
+            <p class="sudden" id="sudden-banner" hidden>Sudden death</p>
+            <h2 class="headline" id="handoff-name" tabindex="-1">Player 1’s turn</h2>
+            <div id="handoff-effects" class="effects" hidden>
+              <p class="kicker" id="handoff-effects-label">Active sabotages</p>
+              <div
+                class="effect-list"
+                id="handoff-effect-list"
+                role="list"
+                aria-labelledby="handoff-effects-label"
+              ></div>
+            </div>
+            <div id="handoff-word" class="last-word" hidden>
+              <p class="kicker" id="last-word-label">Last word</p>
+              <div
+                id="handoff-board"
+                class="board board-preview"
+                role="img"
+                aria-labelledby="last-word-label"
+              ></div>
+            </div>
+            <div class="actions handoff-actions">
+              <button
+                type="button"
+                class="btn btn-shop"
+                id="shop-toggle-btn"
+                aria-expanded="false"
+                aria-controls="shop"
+                aria-haspopup="dialog"
+              >
+                <span class="icon icon-shop" aria-hidden="true">
+                  <img src="assets/shop.svg" alt="" width="20" height="20" />
+                </span>
+                Shop
+              </button>
+              <button type="button" class="btn btn-amber btn-ready" id="ready-btn">
+                Ready
+                <span class="icon icon-arrow" aria-hidden="true">
+                  <img src="assets/arrow.svg" alt="" width="16" height="22" />
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="screen-play"
+          class="screen"
+          hidden
+          aria-labelledby="turn-who"
+        >
+          <div class="play-top">
+            <div class="turn-meta">
+              <p class="kicker" id="turn-kicker">Turn 1</p>
+              <p class="who" id="turn-who">Player 1</p>
+            </div>
+            <div class="timer" id="timer">
+              <p class="kicker" id="timer-label">Timer</p>
+              <div class="timer-row">
+                <div
+                  class="timer-bar"
+                  id="timer-bar"
+                  role="progressbar"
+                  aria-labelledby="timer-label"
+                  aria-valuemin="0"
+                  aria-valuemax="30"
+                  aria-valuenow="30"
+                >
+                  <span id="timer-fill"></span>
+                </div>
+                <div class="secs" id="timer-secs" aria-hidden="true">30</div>
+              </div>
+            </div>
+          </div>
+          <div id="play-effects" class="effects" hidden>
+            <p class="kicker" id="play-effects-label">Active sabotages</p>
+            <div
+              class="effect-list"
+              id="play-effect-list"
+              role="list"
+              aria-labelledby="play-effects-label"
+            ></div>
+          </div>
+          <div class="board-wrap">
+            <label class="sr-only" for="letter-input">Type your five-letter word</label>
+            <input
+              id="letter-input"
+              class="letter-input"
+              type="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              autocorrect="off"
+              spellcheck="false"
+              inputmode="none"
+              maxlength="5"
+              aria-describedby="flash"
+            />
+            <div class="board" id="board" aria-hidden="true"></div>
+          </div>
+          <p class="flash" id="flash" role="status" aria-atomic="true"></p>
+          <div
+            class="keyboard"
+            id="keyboard"
+            role="group"
+            aria-label="Letter keyboard"
+          ></div>
+        </section>
+
+        <section
+          id="screen-results"
+          class="screen"
+          hidden
+          aria-labelledby="results-title"
+        >
+          <p class="kicker">Final score</p>
+          <h2 class="headline" id="results-title" tabindex="-1">Winner</h2>
+          <ol class="rank-list" id="rank-list" aria-label="Final standings"></ol>
+          <div class="actions">
+            <button type="button" class="btn btn-amber btn-wide" id="again-btn">
+              Play again
+              <span class="icon icon-arrow" aria-hidden="true">
+                <img src="assets/arrow.svg" alt="" width="16" height="22" />
+              </span>
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="shop" class="overlay shop-overlay" hidden>
+      <div
+        class="shop-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shop-title"
+        aria-describedby="shop-balance-copy"
+      >
+        <div class="shop-head">
+          <h2 class="shop-title" id="shop-title">the sabotage shop</h2>
+          <button type="button" class="shop-close" id="shop-close-btn">close</button>
+        </div>
+        <div class="shop-status" id="shop-balance-copy">
+          <div class="shop-balance">
+            <p class="shop-points-label">your points</p>
+            <p class="shop-points" id="shop-balance">0</p>
+          </div>
+          <p id="shop-flash" class="shop-flash" role="status"></p>
+        </div>
+        <div id="shop-items" class="shop-items"></div>
+      </div>
+    </div>
+
+    <div id="rules" class="overlay" hidden>
+      <div class="rules-wrapper">
+        <div
+          class="panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="rules-title"
+          aria-describedby="rules-list"
+        >
+          <p class="kicker">How it works</p>
+          <h2 class="headline headline-sm" id="rules-title">Rules</h2>
+          <ol class="rules-list" id="rules-list">
+            <li id="rules-pass">Pass the device. The next player taps Ready when they have the phone.</li>
+            <li>Type any five-letter dictionary word. Letters score like Scrabble, then that total is multiplied by time left (1 at the start, 0 at timeout).</li>
+            <li>After you are ready, one or more letters from the last word may freeze in place.</li>
+            <li>Between turns, open the shop to spend points on sabotages — freeze extra letters, hide the clock, force backwards typing, and more.</li>
+            <li>Five turns each. A tie goes to sudden death.</li>
+          </ol>
+          <div class="rules-panel-bottom">
+            <button
+              type="button"
+              class="rules-view-pointsperletter"
+              id="rules-view-pointsperletter-btn"
+            >
+              view pointsperletter
+            </button>
+            <button type="button" class="btn btn-amber" id="rules-close-btn">Close</button>
+          </div>
+        </div>
+
+        <div class="ppl-popup" id="rules-pointsperletter-popup" hidden>
+          <p class="ppl-title">
+            <span>points</span><span class="ppl-title-per">per</span><span>letter</span>
+          </p>
+
+          <div class="ppl-row">
+            <p class="ppl-label">1 point</p>
+            <div class="ppl-grid ppl-grid-6">
+              <div class="ppl-cell">A</div>
+              <div class="ppl-cell">E</div>
+              <div class="ppl-cell">I</div>
+              <div class="ppl-cell">L</div>
+              <div class="ppl-cell">N</div>
+              <div class="ppl-cell">O</div>
+              <div class="ppl-cell">R</div>
+              <div class="ppl-cell">S</div>
+              <div class="ppl-cell">T</div>
+              <div class="ppl-cell">U</div>
+            </div>
+          </div>
+
+          <div class="ppl-columns">
+            <div class="ppl-col">
+              <div class="ppl-row">
+                <p class="ppl-label">2 points</p>
+                <div class="ppl-grid ppl-grid-2">
+                  <div class="ppl-cell">D</div>
+                  <div class="ppl-cell">G</div>
+                </div>
+              </div>
+              <div class="ppl-row">
+                <p class="ppl-label">4 points</p>
+                <div class="ppl-grid ppl-grid-5">
+                  <div class="ppl-cell">F</div>
+                  <div class="ppl-cell">H</div>
+                  <div class="ppl-cell">V</div>
+                  <div class="ppl-cell">W</div>
+                  <div class="ppl-cell">Y</div>
+                </div>
+              </div>
+              <div class="ppl-row">
+                <p class="ppl-label">8 points</p>
+                <div class="ppl-grid ppl-grid-2">
+                  <div class="ppl-cell">J</div>
+                  <div class="ppl-cell">X</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ppl-col">
+              <div class="ppl-row">
+                <p class="ppl-label">3 points</p>
+                <div class="ppl-grid ppl-grid-4">
+                  <div class="ppl-cell">B</div>
+                  <div class="ppl-cell">C</div>
+                  <div class="ppl-cell">M</div>
+                  <div class="ppl-cell">P</div>
+                </div>
+              </div>
+              <div class="ppl-row">
+                <p class="ppl-label">5 points</p>
+                <div class="ppl-grid ppl-grid-1">
+                  <div class="ppl-cell">K</div>
+                </div>
+              </div>
+              <div class="ppl-row">
+                <p class="ppl-label">10 points</p>
+                <div class="ppl-grid ppl-grid-2">
+                  <div class="ppl-cell">Q</div>
+                  <div class="ppl-cell">Z</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="restart" class="overlay" hidden>
+      <div
+        class="panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="restart-title"
+        aria-describedby="restart-lede"
+      >
+        <p class="kicker">Match</p>
+        <h2 class="headline headline-sm" id="restart-title">Restart?</h2>
+        <p class="lede" id="restart-lede">This wipes the current scores and returns everyone to setup.</p>
+        <div class="actions">
+          <button type="button" class="btn btn-ghost" id="restart-cancel-btn">Cancel</button>
+          <button type="button" class="btn btn-amber" id="restart-confirm-btn">Restart</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/words.js"></script>
+    <script src="js/scoring.js?v=player-colors"></script>
+    <script src="js/dictionary.js"></script>
+    <script src="js/shop.js?v=sabotage-icons-v3"></script>
+    <script src="js/engine.js?v=sabotage-v2"></script>
+    <script src="js/demo.js?v=sabotage-v2"></script>
+    <script src="js/app.js?v=sabotage-v2"></script>
+  </body>
+</html>
