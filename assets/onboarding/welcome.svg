@@ -1,0 +1,17 @@
+<svg width="200" height="120" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <rect x="8" y="28" width="36" height="36" stroke="#141414" stroke-width="2" fill="#fff"/>
+  <text x="26" y="52" text-anchor="middle" fill="#141414" font-family="Inter, sans-serif" font-size="18" font-weight="700">W</text>
+  <rect x="48" y="28" width="36" height="36" stroke="#141414" stroke-width="2" fill="#fff"/>
+  <text x="66" y="52" text-anchor="middle" fill="#141414" font-family="Inter, sans-serif" font-size="18" font-weight="700">O</text>
+  <rect x="88" y="28" width="36" height="36" stroke="#141414" stroke-width="2" fill="#fff"/>
+  <text x="106" y="52" text-anchor="middle" fill="#141414" font-family="Inter, sans-serif" font-size="18" font-weight="700">R</text>
+  <rect x="128" y="28" width="36" height="36" stroke="#141414" stroke-width="2" fill="#fff"/>
+  <text x="146" y="52" text-anchor="middle" fill="#141414" font-family="Inter, sans-serif" font-size="18" font-weight="700">D</text>
+  <rect x="168" y="28" width="24" height="36" stroke="#141414" stroke-width="2" fill="#fbab20"/>
+  <text x="180" y="52" text-anchor="middle" fill="#141414" font-family="Inter, sans-serif" font-size="18" font-weight="700">S</text>
+  <path d="M30 78 L50 68 L70 82 L90 62 L110 76 L130 58 L150 74 L170 64" stroke="#fbab20" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="50" cy="68" r="4" fill="#fbab20"/>
+  <circle cx="90" cy="62" r="4" fill="#2a9d8f"/>
+  <circle cx="130" cy="58" r="4" fill="#d7263d"/>
+  <circle cx="170" cy="64" r="4" fill="#9b5de5"/>
+</svg>

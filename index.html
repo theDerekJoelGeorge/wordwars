@@ -218,6 +218,31 @@
       </div>
     </div>
 
+    <div id="onboarding" class="overlay onboarding-overlay" hidden>
+      <div
+        class="onboarding-panel panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-title"
+        aria-describedby="onboarding-body"
+      >
+        <p class="kicker onboarding-progress" id="onboarding-progress"></p>
+        <div class="onboarding-visual" id="onboarding-visual" aria-hidden="true"></div>
+        <h2 class="headline headline-sm" id="onboarding-title"></h2>
+        <p class="lede onboarding-body" id="onboarding-body"></p>
+        <div class="onboarding-dots" id="onboarding-dots" role="tablist" aria-label="Guide steps"></div>
+        <div class="onboarding-nav">
+          <button type="button" class="onboarding-skip" id="onboarding-skip-btn">skip</button>
+          <button type="button" class="btn onboarding-next" id="onboarding-next-btn">
+            next
+            <span class="icon icon-arrow" aria-hidden="true">
+              <img src="assets/arrow.svg" alt="" width="16" height="22" />
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div id="rules" class="overlay" hidden>
       <div class="rules-wrapper">
         <div

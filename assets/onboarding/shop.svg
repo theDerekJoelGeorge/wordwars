@@ -1,0 +1,16 @@
+<svg width="200" height="120" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <rect x="10" y="10" width="180" height="100" fill="#141414" rx="2"/>
+  <text x="100" y="32" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-size="12" font-weight="700">the sabotage shop</text>
+  <rect x="24" y="44" width="48" height="52" stroke="#fff" stroke-width="1.5" fill="#1e1e1e"/>
+  <circle cx="48" cy="58" r="10" fill="#fbab20"/>
+  <text x="48" y="78" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-size="7" font-weight="600">time tax</text>
+  <text x="48" y="88" text-anchor="middle" fill="#fbab20" font-family="Inter, sans-serif" font-size="9" font-weight="700">5</text>
+  <rect x="76" y="44" width="48" height="52" stroke="#fff" stroke-width="1.5" fill="#1e1e1e"/>
+  <circle cx="100" cy="58" r="10" fill="#d7263d"/>
+  <text x="100" y="78" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-size="7" font-weight="600">no scope</text>
+  <text x="100" y="88" text-anchor="middle" fill="#fbab20" font-family="Inter, sans-serif" font-size="9" font-weight="700">8</text>
+  <rect x="128" y="44" width="48" height="52" stroke="#fff" stroke-width="1.5" fill="#1e1e1e"/>
+  <circle cx="152" cy="58" r="10" fill="#9b5de5"/>
+  <text x="152" y="78" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-size="7" font-weight="600">mystery</text>
+  <text x="152" y="88" text-anchor="middle" fill="#fbab20" font-family="Inter, sans-serif" font-size="9" font-weight="700">?</text>
+</svg>

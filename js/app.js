@@ -70,6 +70,14 @@
   const playEffectListEl = document.getElementById("play-effect-list");
   const rulesEl = document.getElementById("rules");
   const restartEl = document.getElementById("restart");
+  const onboardingEl = document.getElementById("onboarding");
+  const onboardingProgressEl = document.getElementById("onboarding-progress");
+  const onboardingVisualEl = document.getElementById("onboarding-visual");
+  const onboardingTitleEl = document.getElementById("onboarding-title");
+  const onboardingBodyEl = document.getElementById("onboarding-body");
+  const onboardingDotsEl = document.getElementById("onboarding-dots");
+  const onboardingSkipBtn = document.getElementById("onboarding-skip-btn");
+  const onboardingNextBtn = document.getElementById("onboarding-next-btn");
   const rulesBtn = document.getElementById("rules-btn");
   const restartBtn = document.getElementById("restart-btn");
   const srAnnouncer = document.getElementById("sr-announcer");
@@ -91,6 +99,118 @@
   let prevPhase = "";
   let lastTimerCue = 0;
   let announceTimer = 0;
+  let onboardingStep = 0;
+
+  function getOnboardingSlides() {
+    const desktop = isDesktop();
+    return [
+      {
+        image: "assets/onboarding/welcome.svg",
+        title: "Welcome to wordsus",
+        body: desktop
+          ? "A same-screen five-letter word war for 2–6 friends. Take turns typing words, scoring points, and sabotaging each other."
+          : "A pass-and-play five-letter word war for 2–6 friends. Pass the phone, type words, score points, and sabotage each other.",
+      },
+      {
+        image: "assets/onboarding/setup.svg",
+        title: "Add your players",
+        body: desktop
+          ? "Name everyone and pick a colour, then tap BEGIN. When it’s your turn, tap Ready to start the timer."
+          : "Name everyone and pick a colour, then tap BEGIN. Pass the device — the next player taps Ready when they have the phone.",
+      },
+      {
+        image: "assets/onboarding/playing.svg",
+        title: "Type a five-letter word",
+        body: "You have 30 seconds to enter any valid dictionary word. Letters score like Scrabble — Q, Z, and J are worth the most.",
+      },
+      {
+        image: "assets/onboarding/frozen.svg",
+        title: "Frozen letters chain the game",
+        body: "After each turn, one or more letters from the last word freeze in place. Your next word must work around those locked tiles.",
+      },
+      {
+        image: "assets/onboarding/shop.svg",
+        title: "Spend points in the shop",
+        body: "Between turns, open the sabotage shop. Steal time, hide the clock, force backwards typing, freeze extra letters — or gamble on a mystery prank.",
+      },
+      {
+        image: "assets/onboarding/win.svg",
+        title: "Win the word war",
+        body: "Five turns each. Highest score wins. If leaders tie, sudden death rounds decide it. You’re ready — add players and tap BEGIN.",
+      },
+    ];
+  }
+
+  function paintOnboardingSlide() {
+    const slides = getOnboardingSlides();
+    const slide = slides[onboardingStep];
+    if (!slide) return;
+
+    if (onboardingProgressEl) {
+      onboardingProgressEl.textContent = "how to · " + (onboardingStep + 1) + " of " + slides.length;
+    }
+    if (onboardingVisualEl) {
+      onboardingVisualEl.innerHTML =
+        '<img src="' + slide.image + '" alt="" width="200" height="120" decoding="async" />';
+    }
+    if (onboardingTitleEl) onboardingTitleEl.textContent = slide.title;
+    if (onboardingBodyEl) onboardingBodyEl.textContent = slide.body;
+    if (onboardingNextBtn) {
+      onboardingNextBtn.innerHTML =
+        onboardingStep === slides.length - 1
+          ? "close"
+          : 'next<span class="icon icon-arrow" aria-hidden="true"><img src="assets/arrow.svg" alt="" width="16" height="22" /></span>';
+    }
+
+    if (onboardingDotsEl) {
+      onboardingDotsEl.innerHTML = slides
+        .map(function (_, index) {
+          const active = index === onboardingStep;
+          return (
+            '<button type="button" class="onboarding-dot' +
+            (active ? " is-active" : "") +
+            '" role="tab" aria-selected="' +
+            active +
+            '" aria-label="Step ' +
+            (index + 1) +
+            '" data-step="' +
+            index +
+            '"></button>'
+          );
+        })
+        .join("");
+    }
+
+    if (onboardingEl && !onboardingEl.hidden) {
+      announce("Guide step " + (onboardingStep + 1) + " of " + slides.length + ": " + slide.title);
+    }
+  }
+
+  function completeOnboarding() {
+    closeOverlay(onboardingEl);
+  }
+
+  function openOnboarding(trigger) {
+    onboardingStep = 0;
+    paintOnboardingSlide();
+    openOverlay(onboardingEl, trigger);
+  }
+
+  function goToOnboardingStep(step) {
+    const slides = getOnboardingSlides();
+    onboardingStep = Math.max(0, Math.min(step, slides.length - 1));
+    paintOnboardingSlide();
+    if (onboardingNextBtn) onboardingNextBtn.focus();
+  }
+
+  function nextOnboardingStep() {
+    const slides = getOnboardingSlides();
+    if (onboardingStep >= slides.length - 1) {
+      completeOnboarding();
+      return;
+    }
+    goToOnboardingStep(onboardingStep + 1);
+  }
 
   function isDesktop() {
     return desktopMq.matches;
@@ -151,11 +271,17 @@
   }
 
   function overlayOpen() {
-    return !shopEl.hidden || !rulesEl.hidden || !restartEl.hidden;
+    return (
+      !shopEl.hidden ||
+      !rulesEl.hidden ||
+      !restartEl.hidden ||
+      (onboardingEl && !onboardingEl.hidden)
+    );
   }
 
   function getOpenDialogPanel() {
     if (!shopEl.hidden) return shopEl.querySelector('[role="dialog"]');
+    if (!onboardingEl.hidden) return onboardingEl.querySelector('[role="dialog"]');
     if (!rulesEl.hidden) return rulesEl.querySelector('[role="dialog"]');
     if (!restartEl.hidden) return restartEl.querySelector('[role="dialog"]');
     return null;
@@ -1312,6 +1438,8 @@
     if (event.key === "Enter") return "ENTER";
     if (event.key === "Escape") return "ESCAPE";
     if (event.key === " ") return " ";
+    if (event.key === "ArrowRight") return "ARROW_RIGHT";
+    if (event.key === "ArrowLeft") return "ARROW_LEFT";
     const letter = String(event.key || "").toUpperCase();
     return /^[A-Z]$/.test(letter) ? letter : "";
   }
@@ -1345,6 +1473,18 @@
     }
     if (!restartEl.hidden && key === "ESCAPE") {
       closeOverlay(restartEl);
+      return;
+    }
+    if (!onboardingEl.hidden && key === "ESCAPE") {
+      completeOnboarding();
+      return;
+    }
+    if (!onboardingEl.hidden && (key === "ENTER" || key === " " || key === "ARROW_RIGHT")) {
+      nextOnboardingStep();
+      return;
+    }
+    if (!onboardingEl.hidden && key === "ARROW_LEFT" && onboardingStep > 0) {
+      goToOnboardingStep(onboardingStep - 1);
       return;
     }
     if (key === "ESCAPE") {
@@ -1485,17 +1625,26 @@
     if (event.target === restartEl) closeOverlay(restartEl);
   });
 
+  onboardingEl.addEventListener("click", function (event) {
+    if (event.target === onboardingEl) completeOnboarding();
+  });
+
+  onboardingSkipBtn.addEventListener("click", completeOnboarding);
+  onboardingNextBtn.addEventListener("click", nextOnboardingStep);
+
+  onboardingDotsEl.addEventListener("click", function (event) {
+    const dot = event.target.closest("[data-step]");
+    if (!dot) return;
+    goToOnboardingStep(Number(dot.dataset.step));
+  });
+
   document.getElementById("again-btn").addEventListener("click", function () {
     setupCount = Math.max(state.players.length, 2);
     dispatch({ type: "RESET" });
   });
 
   document.getElementById("rules-btn").addEventListener("click", function () {
-    openOverlay(rulesEl, rulesBtn);
-    const pointsPopup = document.getElementById("rules-pointsperletter-popup");
-    if (pointsPopup) pointsPopup.hidden = true;
-    const viewBtn = document.getElementById("rules-view-pointsperletter-btn");
-    if (viewBtn) viewBtn.setAttribute("aria-expanded", "false");
+    openOnboarding(rulesBtn);
   });
 
   document.getElementById("rules-close-btn").addEventListener("click", function () {
@@ -1646,6 +1795,7 @@
 
   desktopMq.addEventListener("change", function () {
     render();
+    if (!onboardingEl.hidden) paintOnboardingSlide();
   });
 
   if (!WW.WORD_SET || !WW.WORD_SET.size) {
@@ -1666,8 +1816,9 @@
       if (demoKey === "handoff-shop") {
         shopOpen = true;
       }
-      if (demoKey === "rules") {
-        rulesEl.hidden = false;
+      if (demoKey === "rules" || demoKey === "onboarding") {
+        onboardingEl.hidden = false;
+        paintOnboardingSlide();
       }
       if (demoKey === "restart") {
         document.getElementById("restart").hidden = false;
