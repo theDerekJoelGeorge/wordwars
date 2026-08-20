@@ -50,16 +50,12 @@ function startTwo(rng) {
   return state;
 }
 
-test("scoring uses Scrabble letter values times remaining time 0–1", () => {
+test("scoring uses Scrabble letter values only", () => {
   assert.equal(WW.wordValue("crane"), 7);
   assert.equal(WW.wordValue("quiz"), 22);
-  assert.equal(WW.timeScale(0), 0);
-  assert.equal(WW.timeScale(30_000), 1);
-  assert.equal(WW.timeScale(15_000), 0.5);
-  assert.equal(WW.timeScale(-10), 0);
-  assert.equal(WW.scoreWord("crane", 30_000), 7);
-  assert.equal(WW.scoreWord("crane", 15_000), 4);
-  assert.equal(WW.scoreWord("crane", 0), 0);
+  assert.equal(WW.scoreWord("crane"), 7);
+  assert.equal(WW.scoreWord("crane", 15_000), 7);
+  assert.equal(WW.scoreWord("crane", 0), 7);
 });
 
 test("freeze is chosen after the next player is ready", () => {

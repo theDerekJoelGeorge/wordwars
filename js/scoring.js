@@ -58,18 +58,8 @@
       }, 0);
   };
 
-  WW.timeScale = function timeScale(ms, turnMs) {
-    const limit = turnMs == null ? WW.TURN_MS : turnMs;
-    if (ms <= 0 || limit <= 0) return 0;
-    return Math.min(1, ms / limit);
-  };
-
-  WW.pointsFromRemaining = function pointsFromRemaining(ms, turnMs) {
-    return WW.timeScale(ms, turnMs);
-  };
-
-  WW.scoreWord = function scoreWord(word, ms, turnMs) {
-    return Math.round(WW.wordValue(word) * WW.timeScale(ms, turnMs));
+  WW.scoreWord = function scoreWord(word) {
+    return WW.wordValue(word);
   };
 
   if (typeof module !== "undefined") module.exports = WW;
