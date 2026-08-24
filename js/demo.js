@@ -12,6 +12,16 @@
     };
   }
 
+  function play(word, points, playerId, playerName, opening) {
+    return {
+      word: word,
+      points: points,
+      playerId: playerId,
+      playerName: playerName,
+      opening: Boolean(opening),
+    };
+  }
+
   function basePlayers() {
     return [
       player("p1", "Alex", 42, 2, "#fbab20"),
@@ -119,6 +129,10 @@
           isSuddenDeath: false,
           suddenDeathRemaining: [],
           lastShopMessage: "Double Trouble armed on Jordan.",
+          lastShopPurchase: {
+            itemName: "Double Trouble",
+            targetName: "Jordan",
+          },
           turnDurationMs: WW.TURN_MS,
           activeEffects: [],
           hideTimer: false,
@@ -373,9 +387,9 @@
         return {
           phase: "game_over",
           players: [
-            player("p1", "Alex", 62, 5),
-            player("p2", "Jordan", 48, 5),
-            player("p3", "Sam", 35, 5),
+            player("p1", "Alex", 62, 5, "#fbab20"),
+            player("p2", "Jordan", 48, 5, "#141414"),
+            player("p3", "Sam", 35, 5, "#d7263d"),
           ],
           currentPlayerIndex: 0,
           lastWord: "CRANE",
@@ -390,6 +404,23 @@
           isSuddenDeath: false,
           suddenDeathRemaining: [],
           lastShopMessage: null,
+          playLog: [
+            play("stars", 0, "p1", "Alex", true),
+            play("jazzy", 33, "p2", "Jordan"),
+            play("fjord", 16, "p3", "Sam"),
+            play("wimpy", 15, "p1", "Alex"),
+            play("vexed", 16, "p2", "Jordan"),
+            play("glyph", 14, "p3", "Sam"),
+            play("quick", 20, "p1", "Alex"),
+            play("crane", 7, "p2", "Jordan"),
+            play("share", 8, "p3", "Sam"),
+            play("blaze", 16, "p1", "Alex"),
+            play("slate", 5, "p2", "Jordan"),
+            play("peach", 12, "p3", "Sam"),
+            play("prize", 16, "p1", "Alex"),
+            play("stale", 5, "p2", "Jordan"),
+            play("zesty", 17, "p3", "Sam"),
+          ],
         };
       },
 
@@ -397,8 +428,8 @@
         return {
           phase: "game_over",
           players: [
-            player("p1", "Alex", 50, 5),
-            player("p2", "Jordan", 50, 5),
+            player("p1", "Alex", 50, 5, "#fbab20"),
+            player("p2", "Jordan", 50, 5, "#141414"),
           ],
           currentPlayerIndex: 0,
           lastWord: "CRANE",
@@ -413,12 +444,30 @@
           isSuddenDeath: false,
           suddenDeathRemaining: [],
           lastShopMessage: null,
+          playLog: [
+            play("stars", 0, "p1", "Alex", true),
+            play("query", 17, "p2", "Jordan"),
+            play("blaze", 16, "p1", "Alex"),
+            play("fjord", 16, "p2", "Jordan"),
+            play("wimpy", 15, "p1", "Alex"),
+            play("vexed", 16, "p2", "Jordan"),
+            play("glyph", 14, "p1", "Alex"),
+            play("crane", 7, "p2", "Jordan"),
+            play("share", 8, "p1", "Alex"),
+            play("peach", 12, "p2", "Jordan"),
+            play("slate", 5, "p1", "Alex"),
+          ],
         };
       },
     };
 
     const factory = states[key];
-    return factory ? factory() : null;
+    if (!factory) return null;
+    const next = factory();
+    if (next.lastWord) next.seeded = true;
+    if (next.turnsPerPlayer == null) next.turnsPerPlayer = WW.TURNS_PER_PLAYER;
+    if (!next.playLog) next.playLog = [];
+    return next;
   };
 
   WW.DEMO_KEYS = [

@@ -1,26 +1,14 @@
 const fs = require("fs");
 const path = require("path");
 
-const sources = [
-  path.join(
-    process.env.USERPROFILE || "",
-    ".cursor/projects/c-Users-derek-OneDrive-Desktop-wordwars/agent-tools/b98d24d1-9344-4d49-a2c4-713079a0f8d5.txt"
-  ),
-  path.join(__dirname, "word-source.txt"),
-];
+const source = path.join(__dirname, "word-source.txt");
 
-let text = "";
-for (const file of sources) {
-  if (fs.existsSync(file)) {
-    text = fs.readFileSync(file, "utf8");
-    break;
-  }
-}
-
-if (!text) {
-  console.error("No word source found");
+if (!fs.existsSync(source)) {
+  console.error("No word source found at", source);
   process.exit(1);
 }
+
+const text = fs.readFileSync(source, "utf8");
 
 const words = [
   ...new Set(

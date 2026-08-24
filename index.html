@@ -9,20 +9,111 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=a11y-1" />
+    <link rel="stylesheet" href="css/styles.css?v=results-mobile" />
     <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
   </head>
   <body>
     <div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-    <div class="app" id="app">
+
+    <div id="landing" class="landing">
+      <header class="landing-top">
+        <button type="button" class="btn-share" id="landing-share-btn">
+          <span id="landing-share-label" aria-live="polite">share</span>
+          <span class="icon icon-share" aria-hidden="true">
+            <img src="assets/share.svg" alt="" width="16" height="14" />
+          </span>
+        </button>
+      </header>
+
+      <main class="landing-main">
+        <div class="landing-logo" aria-label="wordsus">
+          <img
+            src="assets/wordsus-logo-for%20GIF.png"
+            alt=""
+            width="1200"
+            height="320"
+            decoding="async"
+          />
+          <span class="landing-typewriter" id="landing-typewriter" aria-hidden="true">
+            <span class="landing-type-char" id="landing-type-char"></span>
+            <span class="landing-type-caret"></span>
+          </span>
+        </div>
+        <p class="landing-tagline">Can your vocabulary handle some chaos ?</p>
+        <div class="landing-actions">
+          <button type="button" class="landing-btn landing-btn-rules" id="landing-rules-btn">
+            <img src="assets/rules-icon.svg" alt="" width="22" height="17" />
+            <span>RULES</span>
+          </button>
+          <button type="button" class="landing-btn landing-btn-ready" id="landing-ready-btn">
+            <span>READY</span>
+            <img
+              class="landing-ready-arrow"
+              src="assets/landing-arrow.svg"
+              alt=""
+              width="16"
+              height="22"
+            />
+          </button>
+        </div>
+      </main>
+
+      <footer class="landing-credit">
+        <p>
+          this game is a brainchild of
+          <a
+            class="landing-human"
+            href="https://www.thederekjoel.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >this human</a>
+        </p>
+        <a
+          class="landing-credit-logo"
+          href="https://www.thederekjoel.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Derek Joel portfolio"
+        >
+          <img src="assets/logo-orange.png" alt="" width="48" height="39" />
+        </a>
+      </footer>
+    </div>
+
+    <div class="app" id="app" hidden>
       <a class="skip-link" href="#main">Skip to game</a>
       <header class="masthead">
-        <h1 class="logo">words<span>us</span></h1>
+        <h1 class="logo">
+          <img
+            src="assets/wordsus-logo-black.png"
+            alt="wordsus"
+            width="1936"
+            height="444"
+          />
+        </h1>
         <nav class="mast-nav" aria-label="Match">
-          <button type="button" class="nav-text" id="rules-btn">rules</button>
+          <button
+            type="button"
+            class="nav-ppl"
+            id="ppl-btn"
+            aria-label="Points per letter"
+            aria-expanded="false"
+            aria-controls="ppl"
+            data-tip="View Points Per Letter"
+          >
+            ppl
+          </button>
+          <button
+            type="button"
+            class="nav-text"
+            id="rules-btn"
+            data-tip="Learn the basics"
+          >
+            rules
+          </button>
           <button type="button" class="nav-text nav-restart" id="restart-btn">
             restart
           </button>
@@ -45,7 +136,30 @@
         >
           <p class="kicker" id="setup-kicker">GAME SETUP</p>
           <h2 class="headline setup-title" id="setup-title">ADD PLAYERS</h2>
+          <p class="setup-hint">Playing alone? Tap Add AI on a rival.</p>
           <div id="name-fields" class="setup-roster"></div>
+          <div class="setup-rounds">
+            <div class="setup-rounds-copy">
+              <p class="setup-rounds-label" id="rounds-label">Rounds</p>
+              <p class="setup-rounds-hint" id="rounds-hint">
+                Scoring turns each, after the first word
+              </p>
+            </div>
+            <div
+              class="setup-rounds-stepper"
+              role="group"
+              aria-labelledby="rounds-label"
+              aria-describedby="rounds-hint"
+            >
+              <button type="button" id="rounds-minus" aria-label="Fewer rounds">
+                −
+              </button>
+              <span id="rounds-value" aria-live="polite">5</span>
+              <button type="button" id="rounds-plus" aria-label="More rounds">
+                +
+              </button>
+            </div>
+          </div>
           <div class="setup-actions">
             <button type="button" class="add-player" id="player-plus">
               + ADD A NEW PLAYER
@@ -70,7 +184,10 @@
             <p class="sudden" id="sudden-banner" hidden>Sudden death</p>
             <h2 class="headline" id="handoff-name" tabindex="-1">Player 1’s turn</h2>
             <div id="handoff-effects" class="effects" hidden>
-              <p class="kicker" id="handoff-effects-label">Active sabotages</p>
+              <p class="kicker effects-kicker">
+                <span id="handoff-effects-label">Active sabotages</span>
+                <span class="effects-hint">(hover to read about sabotage)</span>
+              </p>
               <div
                 class="effect-list"
                 id="handoff-effect-list"
@@ -141,7 +258,10 @@
             </div>
           </div>
           <div id="play-effects" class="effects" hidden>
-            <p class="kicker" id="play-effects-label">Active sabotages</p>
+            <p class="kicker effects-kicker">
+              <span id="play-effects-label">Active sabotages</span>
+              <span class="effects-hint">(hover to read about sabotage)</span>
+            </p>
             <div
               class="effect-list"
               id="play-effect-list"
@@ -183,7 +303,24 @@
           <p class="kicker">Final score</p>
           <h2 class="headline" id="results-title" tabindex="-1">Winner</h2>
           <ol class="rank-list" id="rank-list" aria-label="Final standings"></ol>
+          <div class="results-plays" id="results-plays" hidden>
+            <p class="kicker">top scoring words</p>
+            <ol class="play-list" id="play-list" aria-label="Top scoring words"></ol>
+          </div>
           <div class="actions">
+            <a
+              class="btn btn-feedback btn-wide"
+              id="feedback-btn"
+              href="https://forms.gle/hJYUTMaTX4zGyfeM6"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="icon icon-feedback" aria-hidden="true">
+                <img src="assets/feedback.svg" alt="" width="18" height="22" />
+              </span>
+              <span>Feedback</span>
+              <span class="sr-only">(opens in a new tab)</span>
+            </a>
             <button type="button" class="btn btn-amber btn-wide" id="again-btn">
               Play again
               <span class="icon icon-arrow" aria-hidden="true">
@@ -196,49 +333,68 @@
     </div>
 
     <div id="shop" class="overlay shop-overlay" hidden>
-      <div
-        class="shop-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="shop-title"
-        aria-describedby="shop-balance-copy"
-      >
-        <div class="shop-head">
-          <h2 class="shop-title" id="shop-title">the sabotage shop</h2>
-          <button type="button" class="shop-close" id="shop-close-btn">close</button>
-        </div>
-        <div class="shop-status" id="shop-balance-copy">
-          <div class="shop-balance">
-            <p class="shop-points-label">your points</p>
-            <p class="shop-points" id="shop-balance">0</p>
+      <div class="shop-shell">
+        <div class="shop-scores" id="shop-scores" aria-label="Player scores"></div>
+        <div
+          class="shop-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="shop-title"
+        >
+          <div class="shop-head">
+            <h2 class="shop-title" id="shop-title">the sabotage shop</h2>
+            <p class="shop-points">
+              your points:
+              <span class="shop-points-value" id="shop-points-value">0</span>
+            </p>
+            <p id="shop-flash" class="shop-flash" role="status"></p>
+            <button type="button" class="shop-close" id="shop-close-btn">close</button>
           </div>
-          <p id="shop-flash" class="shop-flash" role="status"></p>
+          <div id="shop-items" class="shop-items"></div>
         </div>
-        <div id="shop-items" class="shop-items"></div>
       </div>
     </div>
 
     <div id="onboarding" class="overlay onboarding-overlay" hidden>
       <div
-        class="onboarding-panel panel"
+        class="onboarding-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
         aria-describedby="onboarding-body"
       >
-        <p class="kicker onboarding-progress" id="onboarding-progress"></p>
+        <div class="onboarding-head">
+          <p class="onboarding-kicker">how to</p>
+          <p class="onboarding-page" id="onboarding-page"></p>
+        </div>
         <div class="onboarding-visual" id="onboarding-visual" aria-hidden="true"></div>
-        <h2 class="headline headline-sm" id="onboarding-title"></h2>
-        <p class="lede onboarding-body" id="onboarding-body"></p>
+        <h2 class="onboarding-title" id="onboarding-title"></h2>
+        <div class="onboarding-body" id="onboarding-body"></div>
         <div class="onboarding-dots" id="onboarding-dots" role="tablist" aria-label="Guide steps"></div>
         <div class="onboarding-nav">
           <button type="button" class="onboarding-skip" id="onboarding-skip-btn">skip</button>
-          <button type="button" class="btn onboarding-next" id="onboarding-next-btn">
-            next
-            <span class="icon icon-arrow" aria-hidden="true">
-              <img src="assets/arrow.svg" alt="" width="16" height="22" />
-            </span>
-          </button>
+          <div class="onboarding-actions" id="onboarding-actions">
+            <button type="button" class="onboarding-back" id="onboarding-back-btn" hidden>
+              <img
+                class="onboarding-back-arrow"
+                src="assets/onboarding/next-arrow.svg"
+                alt=""
+                width="13"
+                height="9"
+              />
+              <span>back</span>
+            </button>
+            <button type="button" class="onboarding-next" id="onboarding-next-btn">
+              <span>next</span>
+              <img
+                class="onboarding-next-arrow"
+                src="assets/onboarding/next-arrow.svg"
+                alt=""
+                width="13"
+                height="9"
+              />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -259,7 +415,8 @@
             <li>Type any five-letter dictionary word. Letters score like Scrabble.</li>
             <li>After you are ready, one or more letters from the last word may freeze in place.</li>
             <li>Between turns, open the shop to spend points on sabotages — freeze extra letters, hide the clock, force backwards typing, and more.</li>
-            <li>Five turns each. A tie goes to sudden death.</li>
+            <li>The first word scores nothing and starts the chain. Then each player takes the chosen number of scoring turns. A tie goes to sudden death.</li>
+            <li>Playing alone? Tap Add AI on a rival on the setup screen.</li>
           </ol>
           <div class="rules-panel-bottom">
             <button
@@ -272,82 +429,21 @@
             <button type="button" class="btn btn-amber" id="rules-close-btn">Close</button>
           </div>
         </div>
+      </div>
+    </div>
 
-        <div class="ppl-popup" id="rules-pointsperletter-popup" hidden>
-          <p class="ppl-title">
-            <span>points</span><span class="ppl-title-per">per</span><span>letter</span>
-          </p>
-
-          <div class="ppl-row">
-            <p class="ppl-label">1 point</p>
-            <div class="ppl-grid ppl-grid-6">
-              <div class="ppl-cell">A</div>
-              <div class="ppl-cell">E</div>
-              <div class="ppl-cell">I</div>
-              <div class="ppl-cell">L</div>
-              <div class="ppl-cell">N</div>
-              <div class="ppl-cell">O</div>
-              <div class="ppl-cell">R</div>
-              <div class="ppl-cell">S</div>
-              <div class="ppl-cell">T</div>
-              <div class="ppl-cell">U</div>
-            </div>
-          </div>
-
-          <div class="ppl-columns">
-            <div class="ppl-col">
-              <div class="ppl-row">
-                <p class="ppl-label">2 points</p>
-                <div class="ppl-grid ppl-grid-2">
-                  <div class="ppl-cell">D</div>
-                  <div class="ppl-cell">G</div>
-                </div>
-              </div>
-              <div class="ppl-row">
-                <p class="ppl-label">4 points</p>
-                <div class="ppl-grid ppl-grid-5">
-                  <div class="ppl-cell">F</div>
-                  <div class="ppl-cell">H</div>
-                  <div class="ppl-cell">V</div>
-                  <div class="ppl-cell">W</div>
-                  <div class="ppl-cell">Y</div>
-                </div>
-              </div>
-              <div class="ppl-row">
-                <p class="ppl-label">8 points</p>
-                <div class="ppl-grid ppl-grid-2">
-                  <div class="ppl-cell">J</div>
-                  <div class="ppl-cell">X</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="ppl-col">
-              <div class="ppl-row">
-                <p class="ppl-label">3 points</p>
-                <div class="ppl-grid ppl-grid-4">
-                  <div class="ppl-cell">B</div>
-                  <div class="ppl-cell">C</div>
-                  <div class="ppl-cell">M</div>
-                  <div class="ppl-cell">P</div>
-                </div>
-              </div>
-              <div class="ppl-row">
-                <p class="ppl-label">5 points</p>
-                <div class="ppl-grid ppl-grid-1">
-                  <div class="ppl-cell">K</div>
-                </div>
-              </div>
-              <div class="ppl-row">
-                <p class="ppl-label">10 points</p>
-                <div class="ppl-grid ppl-grid-2">
-                  <div class="ppl-cell">Q</div>
-                  <div class="ppl-cell">Z</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div id="ppl" class="overlay" hidden>
+      <div
+        class="ppl-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ppl-title"
+      >
+        <h2 class="ppl-title" id="ppl-title">
+          <span>points</span><span class="ppl-title-per">per</span><span>letter</span>
+        </h2>
+        <div id="ppl-body" class="ppl-body"></div>
+        <button type="button" class="ppl-close" id="ppl-close-btn">close</button>
       </div>
     </div>
 
@@ -369,12 +465,58 @@
       </div>
     </div>
 
-    <script src="js/words.js"></script>
-    <script src="js/scoring.js?v=player-colors"></script>
+    <div id="ai" class="overlay" hidden>
+      <div
+        class="ai-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-title"
+        aria-describedby="ai-lede"
+      >
+        <div class="ai-head">
+          <p class="ai-kicker" id="ai-kicker">adding an Average Individual</p>
+          <button type="button" class="ai-close" id="ai-close-btn">close</button>
+        </div>
+        <h2 class="ai-title" id="ai-title">Select difficulty</h2>
+        <p class="ai-lede" id="ai-lede">
+          Set the level of intelligence that you want to give your imaginary friend playing with you.
+        </p>
+        <div class="ai-choices">
+          <button type="button" class="ai-choice" data-ai-level="beginner" aria-pressed="false">
+            <span class="ai-choice-frame">
+              <img src="assets/ai-2023.png" alt="" width="154" height="154" />
+            </span>
+            <span class="ai-choice-year">2023</span>
+            <span class="sr-only">Beginner</span>
+          </button>
+          <button type="button" class="ai-choice" data-ai-level="intermediate" aria-pressed="false">
+            <span class="ai-choice-frame">
+              <img src="assets/ai-2025.png" alt="" width="154" height="154" />
+            </span>
+            <span class="ai-choice-year">2025</span>
+            <span class="sr-only">Intermediate</span>
+          </button>
+          <button type="button" class="ai-choice" data-ai-level="hard" aria-pressed="false">
+            <span class="ai-choice-frame ai-choice-frame-hard">
+              <img src="assets/ai-2032.png" alt="" width="154" height="154" />
+            </span>
+            <span class="ai-choice-year">2032</span>
+            <span class="sr-only">Hard</span>
+          </button>
+        </div>
+        <button type="button" class="ai-remove" id="ai-remove-btn" hidden>
+          remove AI, play as a human
+        </button>
+      </div>
+    </div>
+
+    <script src="js/words.js?v=common-words"></script>
+    <script src="js/scoring.js?v=timer-fix"></script>
     <script src="js/dictionary.js"></script>
-    <script src="js/shop.js?v=sabotage-icons-v3"></script>
-    <script src="js/engine.js?v=sabotage-v2"></script>
-    <script src="js/demo.js?v=sabotage-v2"></script>
-    <script src="js/app.js?v=sabotage-v2"></script>
+    <script src="js/shop.js?v=shop-notes"></script>
+    <script src="js/engine.js?v=ai-v5"></script>
+    <script src="js/ai.js?v=ai-sabotage-mix"></script>
+    <script src="js/demo.js?v=word-log-2"></script>
+    <script src="js/app.js?v=ai-remove"></script>
   </body>
 </html>

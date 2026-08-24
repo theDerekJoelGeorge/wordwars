@@ -25,6 +25,40 @@
     });
   }
 
+  function cloneShopPurchase(value) {
+    if (!value || !value.itemName) return null;
+    return {
+      itemName: value.itemName,
+      targetName: value.targetName || null,
+    };
+  }
+
+  function clonePlayLog(log) {
+    if (!log || !log.length) return [];
+    return log.map(function (entry) {
+      return {
+        word: entry.word,
+        points: entry.points,
+        playerId: entry.playerId,
+        playerName: entry.playerName,
+        opening: Boolean(entry.opening),
+      };
+    });
+  }
+
+  function appendPlay(state, word, points, opening) {
+    const player = state.players[state.currentPlayerIndex];
+    const nextLog = clonePlayLog(state.playLog);
+    nextLog.push({
+      word: word,
+      points: points,
+      playerId: player ? player.id : "",
+      playerName: player ? player.name : "",
+      opening: Boolean(opening),
+    });
+    return nextLog;
+  }
+
   function emptyDraft(frozenSlots) {
     const draft = ["", "", "", "", ""];
     if (frozenSlots) {
@@ -51,6 +85,9 @@
         turnsTaken: player.turnsTaken,
         color: player.color || "#fbab20",
         pendingEffects: cloneEffects(player.pendingEffects),
+        notCheap: Boolean(player.notCheap),
+        isAi: Boolean(player.isAi),
+        aiLevel: player.aiLevel || "",
       };
     });
   }
@@ -64,6 +101,11 @@
       tooLate: Boolean(state.tooLate),
       freezeCount: state.freezeCount == null ? 1 : state.freezeCount,
     };
+  }
+
+  function cloneLetterPointsState(points) {
+    if (!points) return null;
+    return WW.cloneLetterPoints(points);
   }
 
   function cloneState(state) {
@@ -83,6 +125,7 @@
             points: state.lastSubmitResult.points,
             frozenSlots: cloneFrozenSlots(state.lastSubmitResult.frozenSlots),
             timedOut: state.lastSubmitResult.timedOut,
+            opening: Boolean(state.lastSubmitResult.opening),
             tiles: state.lastSubmitResult.tiles
               ? state.lastSubmitResult.tiles.slice()
               : null,
@@ -93,6 +136,8 @@
       isSuddenDeath: state.isSuddenDeath,
       suddenDeathRemaining: state.suddenDeathRemaining.slice(),
       lastShopMessage: state.lastShopMessage || null,
+      lastShopPurchase: cloneShopPurchase(state.lastShopPurchase),
+      letterPoints: cloneLetterPointsState(state.letterPoints),
       turnDurationMs:
         state.turnDurationMs == null ? WW.TURN_MS : state.turnDurationMs,
       activeEffects: cloneEffects(state.activeEffects),
@@ -103,6 +148,10 @@
       tooQuick: Boolean(state.tooQuick),
       tooLate: Boolean(state.tooLate),
       freezeCount: state.freezeCount == null ? 1 : state.freezeCount,
+      blockBackspace: Boolean(state.blockBackspace),
+      seeded: Boolean(state.seeded),
+      turnsPerPlayer: roundsFor(state),
+      playLog: clonePlayLog(state.playLog),
     };
   }
 
@@ -151,9 +200,18 @@
     return tied;
   }
 
-  function allRegularTurnsDone(players) {
+  function roundsFor(state) {
+    return WW.clampRounds(state && state.turnsPerPlayer);
+  }
+
+  function isOpeningTurn(state) {
+    return !state.seeded && !state.lastWord && !state.isSuddenDeath;
+  }
+
+  function allRegularTurnsDone(players, state) {
+    const need = roundsFor(state);
     return players.every(function (player) {
-      return player.turnsTaken >= WW.TURNS_PER_PLAYER;
+      return player.turnsTaken >= need;
     });
   }
 
@@ -331,14 +389,30 @@
     const next = cloneState(state);
     const buyer = next.players[check.buyerIndex];
     const item = check.item;
-    buyer.score -= item.cost;
+    const target = check.targetIndex >= 0 ? next.players[check.targetIndex] : null;
+    buyer.score -= WW.sabotagePrice(item, target);
+    next.lastShopPurchase = {
+      itemName: item.name,
+      targetName: target ? target.name : null,
+    };
 
     if (item.id === "robin_hood") {
       next.lastShopMessage = applyRobinHood(next.players, check.buyerIndex);
       return next;
     }
 
-    const target = check.targetIndex >= 0 ? next.players[check.targetIndex] : null;
+    if (item.id === "ppl_shuffle") {
+      next.letterPoints = WW.shuffleLetterPoints(random, next.letterPoints);
+      next.lastShopMessage = item.name + " — letter values reshuffled";
+      return next;
+    }
+
+    if (item.id === "not_cheap") {
+      buyer.notCheap = true;
+      next.lastShopMessage =
+        item.name + " — rivals pay double to sabotage you";
+      return next;
+    }
 
     if (target && item.id !== "not_today") {
       const immunityIndex = target.pendingEffects.findIndex(function (effect) {
@@ -365,6 +439,20 @@
         type: "hostile_takeover",
         fromPlayerId: buyer.id,
       });
+    } else if (item.id === "cry_over_spilt_milk") {
+      pushPendingEffect(target, {
+        type: "no_backspace",
+        fromPlayerId: buyer.id,
+      });
+      next.lastShopMessage =
+        item.name + " — " + target.name + " cannot delete letters";
+    } else if (item.id === "sui_you_later") {
+      pushPendingEffect(target, {
+        type: "sui_you_later",
+        fromPlayerId: buyer.id,
+      });
+      next.lastShopMessage =
+        item.name + " — +7 per vowel in " + target.name + "'s word";
     } else if (item.id === "time_tax") {
       pushPendingEffect(target, {
         type: "time_tax",
@@ -463,6 +551,7 @@
     next.tooQuick = false;
     next.tooLate = false;
     next.freezeCount = 1;
+    next.blockBackspace = false;
   }
 
   function applyPendingEffect(effect, ctx) {
@@ -518,13 +607,18 @@
     } else if (type === "hostile_takeover") {
       // Turn-scoped: consumed on the target's next SUBMIT (handled in SUBMIT logic).
       ctx.applied.push(effect);
+    } else if (type === "no_backspace") {
+      ctx.blockBackspace = true;
+      ctx.applied.push(effect);
+    } else if (type === "sui_you_later") {
+      ctx.applied.push(effect);
     } else {
       ctx.kept.push(effect);
     }
   }
 
   function scoreWithPenalties(word, timeRemainingMs, turnDurationMs, state) {
-    let points = WW.scoreWord(word, timeRemainingMs, turnDurationMs);
+    let points = WW.wordValue(word, WW.getLetterPoints(state));
     const elapsed = turnDurationMs - timeRemainingMs;
     if (state.tooQuick && elapsed < WW.TOO_QUICK_MS) {
       points = Math.round(points * WW.SCORE_PENALTY);
@@ -537,7 +631,12 @@
 
   function applyTimeout(state) {
     const players = clonePlayers(state.players);
-    players[state.currentPlayerIndex].turnsTaken += 1;
+    const opening = isOpeningTurn(state);
+    if (!opening) {
+      players[state.currentPlayerIndex].turnsTaken += 1;
+    }
+    const tiles =
+      state.phase === "spinning" ? emptyDraft(null) : state.draft.slice();
 
     return {
       phase: "revealing",
@@ -546,7 +645,7 @@
       lastWord: state.lastWord,
       frozenSlots: [],
       usedWords: state.usedWords.slice(),
-      draft: state.draft.slice(),
+      draft: tiles,
       timeRemainingMs: 0,
       turnEndsAt: null,
       lastSubmitResult: {
@@ -554,13 +653,16 @@
         points: 0,
         frozenSlots: [],
         timedOut: true,
-        tiles: state.draft.slice(),
+        opening: opening,
+        tiles: tiles,
       },
       invalidReason: null,
       shakeNonce: state.shakeNonce,
       isSuddenDeath: state.isSuddenDeath,
       suddenDeathRemaining: state.suddenDeathRemaining.slice(),
       lastShopMessage: state.lastShopMessage || null,
+      lastShopPurchase: cloneShopPurchase(state.lastShopPurchase),
+      letterPoints: cloneLetterPointsState(state.letterPoints),
       turnDurationMs:
         state.turnDurationMs == null ? WW.TURN_MS : state.turnDurationMs,
       activeEffects: cloneEffects(state.activeEffects),
@@ -571,6 +673,9 @@
       tooQuick: Boolean(state.tooQuick),
       tooLate: Boolean(state.tooLate),
       freezeCount: state.freezeCount == null ? 1 : state.freezeCount,
+      seeded: Boolean(state.seeded),
+      turnsPerPlayer: roundsFor(state),
+      playLog: clonePlayLog(state.playLog),
     };
   }
 
@@ -592,6 +697,8 @@
       isSuddenDeath: Boolean(opts.isSuddenDeath),
       suddenDeathRemaining: opts.suddenDeathRemaining || [],
       lastShopMessage: null,
+      lastShopPurchase: null,
+      letterPoints: cloneLetterPointsState(state.letterPoints),
       turnDurationMs: WW.TURN_MS,
       activeEffects: [],
       hideTimer: false,
@@ -601,6 +708,9 @@
       tooQuick: false,
       tooLate: false,
       freezeCount: 1,
+      seeded: Boolean(state.seeded),
+      turnsPerPlayer: roundsFor(state),
+      playLog: clonePlayLog(state.playLog),
     };
   }
 
@@ -627,7 +737,7 @@
       });
     }
 
-    if (allRegularTurnsDone(players)) {
+    if (allRegularTurnsDone(players, state)) {
       const tied = leaders(players);
       if (tied.length === 1) {
         return Object.assign(handoffState(players, state, state.currentPlayerIndex), {
@@ -647,7 +757,8 @@
     return handoffState(players, state, nextIndex);
   }
 
-  function startGame(action) {
+  function startGame(action, rng) {
+    const random = rng || Math.random;
     let count = Number(action.playerCount);
     if (!Number.isFinite(count)) count = WW.MIN_PLAYERS;
     count = Math.max(
@@ -657,6 +768,8 @@
     const names = defaultNames(count, action.names);
     const colors = action.colors || [];
     const players = names.map(function (name, index) {
+      const level = WW.normalizeAiLevel(action.aiLevels && action.aiLevels[index]);
+      const isAi = Boolean(action.ais && action.ais[index]) || Boolean(level);
       return {
         id: "p" + (index + 1),
         name: name,
@@ -664,6 +777,9 @@
         score: 0,
         turnsTaken: 0,
         pendingEffects: [],
+        notCheap: false,
+        isAi: isAi,
+        aiLevel: isAi ? level || "intermediate" : "",
       };
     });
 
@@ -683,6 +799,8 @@
       isSuddenDeath: false,
       suddenDeathRemaining: [],
       lastShopMessage: null,
+      lastShopPurchase: null,
+      letterPoints: action.letterPoints || WW.shuffleLetterPoints(random),
       turnDurationMs: WW.TURN_MS,
       activeEffects: [],
       hideTimer: false,
@@ -692,6 +810,9 @@
       tooQuick: false,
       tooLate: false,
       freezeCount: 1,
+      seeded: false,
+      turnsPerPlayer: WW.clampRounds(action.turnsPerPlayer),
+      playLog: [],
     };
   }
 
@@ -712,6 +833,8 @@
       isSuddenDeath: false,
       suddenDeathRemaining: [],
       lastShopMessage: null,
+      lastShopPurchase: null,
+      letterPoints: null,
       turnDurationMs: WW.TURN_MS,
       activeEffects: [],
       hideTimer: false,
@@ -721,11 +844,85 @@
       tooQuick: false,
       tooLate: false,
       freezeCount: 1,
+      seeded: false,
+      turnsPerPlayer: WW.TURNS_PER_PLAYER,
+      playLog: [],
     };
   };
 
   WW.currentPlayer = function currentPlayer(state) {
     return state.players[state.currentPlayerIndex] || null;
+  };
+
+  WW.wordFitsBoard = function wordFitsBoard(word, state) {
+    const w = String(word || "").toLowerCase();
+    if (w.length !== WW.WORD_LENGTH) return false;
+    if (!WW.hasWord(w)) return false;
+    const used = state.usedWords || state.usedWords || [];
+    if (used.indexOf(w) !== -1) return false;
+    const frozen = state.frozenSlots || state.frozenSlots || [];
+    for (let i = 0; i < frozen.length; i += 1) {
+      if (w.charAt(frozen[i].index) !== String(frozen[i].letter).toLowerCase()) {
+        return false;
+      }
+    }
+    if (state.requiredLetter) {
+      if (w.indexOf(String(state.requiredLetter).toLowerCase()) === -1) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  WW.normalizeAiLevel = function normalizeAiLevel(value) {
+    const key = String(value || "").toLowerCase();
+    if (key === "2023" || key === "beginner") return "beginner";
+    if (key === "2032" || key === "2032" || key === "hard") return "hard";
+    if (key === "2025" || key === "intermediate") return "intermediate";
+    return "";
+  };
+
+  WW.pickAiWord = function pickAiWord(state, rng) {
+    const random = rng || Math.random;
+    const pool = WW.WORDS || [];
+    const matches = [];
+    for (let i = 0; i < pool.length; i += 1) {
+      const word = String(pool[i]).toLowerCase();
+      if (WW.wordFitsBoard(word, state)) matches.push(word);
+    }
+    if (!matches.length) return null;
+    let points = WW.LETTER_POINTS;
+    try {
+      if (typeof WW.getLetterPoints === "function") {
+        points = WW.getLetterPoints(state);
+      }
+    } catch (err) {
+      points = WW.LETTER_POINTS;
+    }
+    matches.sort(function (a, b) {
+      const diff = WW.wordValue(b, points) - WW.wordValue(a, points);
+      if (diff) return diff;
+      if (a < b) return -1;
+      if (a > b) return 1;
+      return 0;
+    });
+    let level = "intermediate";
+    if (state.players && state.players.length) {
+      const player = state.players[state.currentPlayerIndex];
+      if (player && player.aiLevel) {
+        level = WW.normalizeAiLevel(player.aiLevel) || "intermediate";
+      }
+    }
+    if (level === "hard") return matches[0];
+    if (level === "beginner") {
+      const start = Math.floor(matches.length / 2);
+      const weak = matches.slice(start);
+      const bag = weak.length ? weak : matches;
+      return bag[Math.min(bag.length - 1, Math.floor(random() * bag.length))];
+    }
+    const topN = Math.min(8, matches.length);
+    const index = Math.min(topN - 1, Math.floor(random() * topN));
+    return matches[index];
   };
 
   WW.winners = function winners(state) {
@@ -744,11 +941,12 @@
     }
 
     if (type === "START") {
-      return startGame(action);
+      return startGame(action, random);
     }
 
     if (type === "BUY_SABOTAGE") {
       if (state.phase !== "handoff") return state;
+      if (isOpeningTurn(state)) return state;
       return buySabotage(state, action, random);
     }
 
@@ -767,6 +965,7 @@
         tooLate: false,
         freezeCount: 1,
         giftPoints: 0,
+        blockBackspace: false,
         applied: [],
         kept: [],
         players: next.players,
@@ -789,8 +988,10 @@
       next.tooQuick = ctx.tooQuick;
       next.tooLate = ctx.tooLate;
       next.freezeCount = ctx.freezeCount;
+      next.blockBackspace = ctx.blockBackspace;
 
       next.lastShopMessage = null;
+      next.lastShopPurchase = null;
       next.invalidReason = null;
       next.lastSubmitResult = null;
       next.turnDurationMs = ctx.turnMs;
@@ -803,7 +1004,7 @@
           random
         );
         next.phase = "spinning";
-        next.turnEndsAt = null;
+        next.turnEndsAt = now + ctx.turnMs;
         next.draft = wordTiles(next.lastWord);
         return next;
       }
@@ -823,9 +1024,13 @@
       const next = cloneState(state);
       next.phase = "playing";
       next.draft = emptyDraft(state.frozenSlots);
-      next.timeRemainingMs = turnMs;
-      next.turnEndsAt = now + turnMs;
       next.invalidReason = null;
+      if (state.turnEndsAt == null) {
+        next.timeRemainingMs = turnMs;
+        next.turnEndsAt = now + turnMs;
+      } else {
+        next.timeRemainingMs = Math.max(0, state.turnEndsAt - now);
+      }
       return next;
     }
 
@@ -849,6 +1054,7 @@
 
     if (type === "BACKSPACE") {
       if (state.phase !== "playing") return state;
+      if (state.blockBackspace) return state;
       const slot = lastTypedSlot(
         state.draft,
         state.frozenSlots,
@@ -901,6 +1107,28 @@
         return next;
       }
 
+      const opening = isOpeningTurn(state);
+      if (opening) {
+        next.seeded = true;
+        next.usedWords.push(word);
+        next.lastWord = word;
+        next.frozenSlots = [];
+        next.phase = "revealing";
+        next.turnEndsAt = null;
+        next.invalidReason = null;
+        next.lastSubmitResult = {
+          word: word,
+          points: 0,
+          frozenSlots: [],
+          timedOut: false,
+          opening: true,
+          tiles: state.draft.slice(),
+        };
+        next.draft = state.draft.slice();
+        next.playLog = appendPlay(next, word, 0, true);
+        return next;
+      }
+
       const points = scoreWithPenalties(
         word,
         state.timeRemainingMs,
@@ -923,6 +1151,19 @@
           next.players[attackerIndex].score += points;
         }
       }
+
+      const sui = (state.activeEffects || []).find(function (effect) {
+        return effect.type === "sui_you_later";
+      });
+      if (sui) {
+        const bonus = WW.countVowels(word) * WW.SUI_VOWEL_POINTS;
+        const attackerIndex = state.players.findIndex(function (player) {
+          return player.id === sui.fromPlayerId;
+        });
+        if (attackerIndex >= 0) {
+          next.players[attackerIndex].score += bonus;
+        }
+      }
       next.usedWords.push(word);
       next.lastWord = word;
       next.frozenSlots = [];
@@ -934,19 +1175,26 @@
         points: pointsToTarget,
         frozenSlots: [],
         timedOut: false,
+        opening: false,
         tiles: state.draft.slice(),
       };
       next.draft = state.draft.slice();
+      next.playLog = appendPlay(next, word, points, false);
       return next;
     }
 
     if (type === "TIMEOUT") {
-      if (state.phase !== "playing") return state;
+      if (state.phase !== "playing" && state.phase !== "spinning") return state;
       return applyTimeout(state);
     }
 
     if (type === "TICK") {
-      if (state.phase !== "playing" || state.turnEndsAt == null) return state;
+      if (
+        (state.phase !== "playing" && state.phase !== "spinning") ||
+        state.turnEndsAt == null
+      ) {
+        return state;
+      }
       const now = action.nowMs == null ? Date.now() : action.nowMs;
       const remaining = Math.max(0, state.turnEndsAt - now);
       if (remaining <= 0) {
@@ -959,7 +1207,12 @@
     }
 
     if (type === "PAUSE_TIMER") {
-      if (state.phase !== "playing" || state.turnEndsAt == null) return state;
+      if (
+        (state.phase !== "playing" && state.phase !== "spinning") ||
+        state.turnEndsAt == null
+      ) {
+        return state;
+      }
       const now = action.nowMs == null ? Date.now() : action.nowMs;
       const next = cloneState(state);
       next.timeRemainingMs = Math.max(0, state.turnEndsAt - now);
@@ -968,7 +1221,12 @@
     }
 
     if (type === "RESUME_TIMER") {
-      if (state.phase !== "playing" || state.turnEndsAt != null) return state;
+      if (
+        (state.phase !== "playing" && state.phase !== "spinning") ||
+        state.turnEndsAt != null
+      ) {
+        return state;
+      }
       const now = action.nowMs == null ? Date.now() : action.nowMs;
       const next = cloneState(state);
       next.turnEndsAt = now + Math.max(0, state.timeRemainingMs);

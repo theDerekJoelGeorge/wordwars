@@ -3,117 +3,133 @@
 
   WW.TIME_TAX_MS = 10000;
   WW.MIN_TURN_MS = 5000;
+  WW.MAX_TURN_MS = 45000;
   WW.HEIST_AMOUNT = 5;
-  WW.ROBIN_HOOD_AMOUNT = 10;
+  WW.ROBIN_HOOD_AMOUNT = 15;
   WW.TOO_QUICK_MS = 10000;
   WW.TOO_LATE_MS = 20000;
   WW.SCORE_PENALTY = 0.5;
   WW.MYSTERY_GIFT_POINTS = 10;
   WW.MYSTERY_TIME_BONUS_MS = 5000;
   WW.MYSTERY_REFUND_AMOUNT = 20;
-  WW.MAX_TURN_MS = 45000;
+  WW.SUI_VOWEL_POINTS = 7;
+
+  WW.countVowels = function countVowels(word) {
+    return String(word || "")
+      .toUpperCase()
+      .replace(/[^AEIOU]/g, "").length;
+  };
+
+  WW.sabotagePrice = function sabotagePrice(item, target) {
+    if (!item) return 0;
+    if (item.noTarget || !target || !target.notCheap) return item.cost;
+    return item.cost * 2;
+  };
 
   WW.SHOP_ITEMS = [
     {
       id: "time_tax",
       name: "Time Tax",
       cost: 6,
-      description: "Take 10 seconds away from a rival's next turn.",
+      description: "Take away 10 sec from a rival's turn.",
       icon: "assets/sabotage-time-tax.svg",
     },
     {
-      id: "too_quick",
-      name: "Too Quick",
+      id: "ppl_shuffle",
+      name: "PPL shuffle",
       cost: 7,
-      description: "Rival scores half points if they submit in under 10 seconds.",
-      icon: "assets/sabotage-too-quick.svg",
-    },
-    {
-      id: "too_late",
-      name: "Too Late",
-      cost: 7,
-      description: "Rival scores half points if they submit after 20 seconds.",
-      icon: "assets/sabotage-too-late.svg",
+      description: "Shuffle the points per letter for the rest of the game.",
+      icon: "assets/sabotage-middle.svg",
+      noTarget: true,
+      note: "Affects every player in the game.",
     },
     {
       id: "tunnel_vision",
       name: "Tunnel Vision",
-      cost: 7,
+      cost: 8,
       description: "Rival only sees their latest letter; earlier tiles show as asterisks.",
       icon: "assets/sabotage-tunnel-vision.svg",
     },
     {
+      id: "clock_block",
+      name: "Clock Block",
+      cost: 8,
+      description: "Hide the timer for a rival's next turn.",
+      icon: "assets/sabotage-clock-block.svg",
+    },
+    {
       id: "heist",
       name: "Point Heist",
-      cost: 8,
+      cost: 10,
       description: "Steal 5 points from a rival immediately.",
       icon: "assets/sabotage-heist.svg",
       immediate: true,
     },
     {
       id: "no_scope",
-      name: "420 No Scope",
-      cost: 8,
+      name: "Reversal",
+      cost: 10,
       description: "Rival must type their word backwards (right to left).",
       icon: "assets/sabotage-no-scope.svg",
     },
     {
-      id: "obsession",
-      name: "Obsession",
-      cost: 8,
-      description: "Rival must include a letter of your choosing in their word.",
-      icon: "assets/sabotage-obsession.svg",
-      needsLetter: true,
-    },
-    {
-      id: "clock_block",
-      name: "Clock Block",
-      cost: 10,
-      description: "Hide the timer for a rival's next turn.",
-      icon: "assets/sabotage-clock-block.svg",
-    },
-    {
       id: "double_trouble",
       name: "Double Trouble",
-      cost: 10,
+      cost: 12,
       description: "Freeze 2 letters from the last word for a rival.",
       icon: "assets/sabotage-double-trouble.svg",
     },
     {
       id: "robin_hood",
       name: "Robin Hood",
-      cost: 12,
-      description: "Take 10 points from 1st place and split them among everyone else.",
+      cost: 15,
+      description: "Take 15 points from 1st place and split them among everyone else.",
       icon: "assets/sabotage-robin-hood.svg",
       noTarget: true,
-    },
-    {
-      id: "triple_trouble",
-      name: "Triple Trouble",
-      cost: 14,
-      description: "Freeze 3 letters from the last word for a rival.",
-      icon: "assets/sabotage-triple-trouble.svg",
-    },
-    {
-      id: "not_today",
-      name: "Not Today",
-      cost: 15,
-      description: "Gain immunity from the next sabotage by a chosen rival.",
-      icon: "assets/sabotage-not-today.svg",
-      selfEffect: true,
+      note: "Takes from 1st place, shares with everyone.",
     },
     {
       id: "hostile_takeover",
       name: "Hostile Takeover",
-      cost: 18,
-      description: "Take over all points your rival earns on their next turn.",
+      cost: 20,
+      description: "Take over all points your rival earns on their next turn",
       icon: "assets/sabotage-hostile-takeover.svg",
+    },
+    {
+      id: "cry_over_spilt_milk",
+      name: "Cry over spilt milk",
+      cost: 25,
+      description: "The rival cannot use backspace to delete letters.",
+      icon: "assets/sabotage-cry-over-spilt-milk.svg",
+    },
+    {
+      id: "not_cheap",
+      name: "Not Cheap",
+      cost: 30,
+      description: "Rivals have to pay double to sabotage you.",
+      icon: "assets/sabotage-not-cheap.svg",
+      noTarget: true,
+      note: "Affects every player in the game.",
+    },
+    {
+      id: "sui_you_later",
+      name: "Sui You Later",
+      cost: 30,
+      description: "Hit the Suii as you get 7 points for every vowel in your rival's word.",
+      icon: "assets/sabotage-sui-you-later.svg",
+    },
+    {
+      id: "not_today",
+      name: "Not Today",
+      cost: 35,
+      description: "Stay immune against a single sabotage.",
+      icon: "assets/sabotage-not-today.svg",
     },
     {
       id: "mystery",
       name: "Mystery",
-      cost: 20,
-      description: "Prank gamble — could backfire, do nothing, or devastate your rival.",
+      cost: 40,
+      description: "Whatever happens is on you for buying this sabotage.",
       icon: "assets/sabotage-mystery.svg",
     },
   ];
@@ -178,7 +194,7 @@
       return "The buyer stole all of this rival's points.";
     }
     if (type === "mystery_refund") {
-      return "The buyer got their 20 points back.";
+      return "The buyer got their points back.";
     }
     if (type === "mystery_gift") {
       return "This rival gained " + WW.MYSTERY_GIFT_POINTS + " bonus points.";
@@ -194,9 +210,15 @@
     const item = WW.getShopItem(type);
     if (item) return item.icon;
     if (type === "immunity") return "assets/sabotage-not-today.svg";
-    if (type === "mystery_gift" || type === "mystery_time" || type === "mystery_nothing" ||
-        type === "mystery_bankrupt_buyer" || type === "mystery_swap_all" ||
-        type === "mystery_jackpot" || type === "mystery_refund") {
+    if (
+      type === "mystery_gift" ||
+      type === "mystery_time" ||
+      type === "mystery_nothing" ||
+      type === "mystery_bankrupt_buyer" ||
+      type === "mystery_swap_all" ||
+      type === "mystery_jackpot" ||
+      type === "mystery_refund"
+    ) {
       return "assets/sabotage-mystery.svg";
     }
     return "";
@@ -206,6 +228,9 @@
     if (type === "time_tax") return "-10s";
     if (type === "clock_block") return "no timer";
     if (type === "immunity") return "not today";
+    if (type === "no_backspace") return "no delete";
+    if (type === "sui_you_later") return "+7/vowel";
+    if (type === "not_cheap") return "2x cost";
     if (type === "double_trouble") return "2 frozen";
     if (type === "triple_trouble") return "3 frozen";
     if (type === "no_scope") return "backwards";
@@ -263,11 +288,14 @@
       return { ok: false, reason: "invalid_item" };
     }
     const buyer = state.players[buyerIndex];
-    if (!buyer || buyer.score < item.cost) {
+    if (!buyer) {
       return { ok: false, reason: "insufficient_funds" };
     }
 
     if (item.noTarget) {
+      if (buyer.score < item.cost) {
+        return { ok: false, reason: "insufficient_funds" };
+      }
       return {
         ok: true,
         item: item,
@@ -284,6 +312,10 @@
     });
     if (targetIndex < 0) {
       return { ok: false, reason: "invalid_target" };
+    }
+    const target = state.players[targetIndex];
+    if (buyer.score < WW.sabotagePrice(item, target)) {
+      return { ok: false, reason: "insufficient_funds" };
     }
 
     if (item.needsLetter && !WW.normalizeLetter(letter)) {

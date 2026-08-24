@@ -5,7 +5,15 @@
   WW.WORD_LENGTH = 5;
   WW.MIN_PLAYERS = 2;
   WW.MAX_PLAYERS = 6;
+  WW.MIN_ROUNDS = 1;
+  WW.MAX_ROUNDS = 10;
   WW.TURNS_PER_PLAYER = 5;
+
+  WW.clampRounds = function clampRounds(value) {
+    let rounds = Number(value);
+    if (!Number.isFinite(rounds)) rounds = WW.TURNS_PER_PLAYER;
+    return Math.max(WW.MIN_ROUNDS, Math.min(WW.MAX_ROUNDS, Math.floor(rounds)));
+  };
   WW.PLAYER_COLORS = [
     "#fbab20",
     "#141414",
@@ -44,18 +52,53 @@
     Z: 10,
   };
 
-  WW.letterValue = function letterValue(letter) {
+  WW.letterValue = function letterValue(letter, pointsMap) {
+    const map = pointsMap || WW.LETTER_POINTS;
     const key = String(letter || "").toUpperCase();
-    return WW.LETTER_POINTS[key] || 0;
+    return map[key] || 0;
   };
 
-  WW.wordValue = function wordValue(word) {
+  WW.wordValue = function wordValue(word, pointsMap) {
     return String(word || "")
       .toUpperCase()
       .split("")
       .reduce(function (sum, letter) {
-        return sum + WW.letterValue(letter);
+        return sum + WW.letterValue(letter, pointsMap);
       }, 0);
+  };
+
+  WW.cloneLetterPoints = function cloneLetterPoints(map) {
+    const source = map || WW.LETTER_POINTS;
+    const copy = {};
+    Object.keys(source).forEach(function (key) {
+      copy[key] = source[key];
+    });
+    return copy;
+  };
+
+  WW.shuffleLetterPoints = function shuffleLetterPoints(rng, base) {
+    const source = base || WW.LETTER_POINTS;
+    const letters = Object.keys(source);
+    const values = letters.map(function (letter) {
+      return source[letter];
+    });
+    const random = rng || Math.random;
+    for (let i = values.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(random() * (i + 1));
+      const tmp = values[i];
+      values[i] = values[j];
+      values[j] = tmp;
+    }
+    const result = {};
+    letters.forEach(function (letter, index) {
+      result[letter] = values[index];
+    });
+    return result;
+  };
+
+  WW.getLetterPoints = function getLetterPoints(state) {
+    if (state && state.letterPoints) return state.letterPoints;
+    return WW.LETTER_POINTS;
   };
 
   WW.scoreWord = function scoreWord(word) {
