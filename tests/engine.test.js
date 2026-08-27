@@ -339,6 +339,7 @@ test("BUY_SABOTAGE heist deducts cost and transfers points", () => {
   );
   assert.equal(state.players[0].score, 45);
   assert.equal(state.players[1].score, 35);
+  assert.deepEqual(state.scoreGains, [{ playerId: "p1", points: 5 }]);
   assert.match(state.lastShopMessage, /Point Heist/);
 });
 
@@ -382,10 +383,51 @@ test("BUY_SABOTAGE hostile takeover steals target's next turn points", () => {
   assert.equal(state.lastSubmitResult.points, 0);
   assert.equal(state.players[0].score, 42); // 30 + 7 (crane) + 5 (stolen from slate)
   assert.equal(state.players[1].score, 37);
+  assert.deepEqual(state.scoreGains, [{ playerId: "p1", points: 5 }]);
   const lastPlay = state.playLog[state.playLog.length - 1];
   assert.equal(lastPlay.word, "slate");
   assert.equal(lastPlay.points, 5);
   assert.equal(lastPlay.playerName, "P2");
+});
+
+test("hostile takeover deducts 15 points if the target does not enter a word", () => {
+  const rng = rngSeq([0.4]);
+  let state = handoffWithScores([50, 40], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "hostile_takeover", targetId: "p2" },
+    rng
+  );
+  state = beginPlay(state, 1_000, rng);
+  state = typeWord(state, "crane", rng);
+  state = WW.reduce(state, { type: "REVEAL_DONE" }, rng);
+  assert.equal(state.currentPlayerIndex, 1);
+  state = beginPlay(state, 2_000, rng);
+  assert.equal(state.players[1].score, 40);
+  state = WW.reduce(state, { type: "TIMEOUT" }, rng);
+  assert.equal(state.phase, "revealing");
+  assert.equal(state.lastSubmitResult.timedOut, true);
+  assert.equal(state.lastSubmitResult.hostileMissPenalty, 15);
+  assert.equal(state.lastSubmitResult.points, -15);
+  assert.equal(state.players[1].score, 25);
+  assert.equal(state.players[0].score, 37);
+});
+
+test("hostile takeover miss penalty cannot drop a player below zero", () => {
+  const rng = rngSeq([0.4]);
+  let state = handoffWithScores([50, 8], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "hostile_takeover", targetId: "p2" },
+    rng
+  );
+  state = beginPlay(state, 1_000, rng);
+  state = typeWord(state, "crane", rng);
+  state = WW.reduce(state, { type: "REVEAL_DONE" }, rng);
+  state = beginPlay(state, 2_000, rng);
+  state = WW.reduce(state, { type: "TIMEOUT" }, rng);
+  assert.equal(state.lastSubmitResult.hostileMissPenalty, 8);
+  assert.equal(state.players[1].score, 0);
 });
 
 test("BUY_SABOTAGE time_tax shortens the target's next turn", () => {
@@ -441,6 +483,56 @@ test("BUY_SABOTAGE robin hood redistributes from the leader", () => {
   assert.equal(state.players[0].score, 13);
   assert.equal(state.players[1].score, 35);
   assert.equal(state.players[2].score, 37);
+  assert.match(state.lastShopMessage, /Robin Hood/);
+});
+
+test("BUY_SABOTAGE robin hood can only be bought once per turn per player", () => {
+  const rng = rngSeq([0.4, 0.4, 0.4]);
+  let state = handoffWithScores([50, 80, 40], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "robin_hood" },
+    rng
+  );
+  assert.deepEqual(
+    state.players.map(function (player) {
+      return player.score;
+    }),
+    [43, 65, 47]
+  );
+  assert.deepEqual(state.shopBoughtThisTurn, ["robin_hood"]);
+  assert.equal(
+    WW.canBuySabotage(state, 0, "robin_hood", null, null).reason,
+    "already_bought"
+  );
+
+  const afterFirst = state;
+  state = WW.reduce(
+    afterFirst,
+    { type: "BUY_SABOTAGE", itemId: "robin_hood" },
+    rng
+  );
+  assert.equal(state, afterFirst);
+  assert.deepEqual(
+    state.players.map(function (player) {
+      return player.score;
+    }),
+    [43, 65, 47]
+  );
+
+  state = beginPlay(state, 1_000, rng);
+  state = typeWord(state, "crane", rng);
+  state = WW.reduce(state, { type: "REVEAL_DONE" }, rng);
+  assert.equal(state.currentPlayerIndex, 1);
+  assert.deepEqual(state.shopBoughtThisTurn, []);
+  assert.equal(WW.canBuySabotage(state, 1, "robin_hood", null, null).ok, true);
+
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "robin_hood" },
+    rng
+  );
+  assert.deepEqual(state.shopBoughtThisTurn, ["robin_hood"]);
   assert.match(state.lastShopMessage, /Robin Hood/);
 });
 
@@ -623,6 +715,7 @@ test("BUY_SABOTAGE sui_you_later awards 7 points per vowel in the rival's word",
 
   assert.equal(state.players[0].score, 41);
   assert.equal(state.players[1].score, 5);
+  assert.deepEqual(state.scoreGains, [{ playerId: "p1", points: 14 }]);
 });
 
 test("BUY_SABOTAGE not_today arms immunity against a rival", () => {

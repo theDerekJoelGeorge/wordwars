@@ -6,6 +6,7 @@
   WW.MAX_TURN_MS = 45000;
   WW.HEIST_AMOUNT = 5;
   WW.ROBIN_HOOD_AMOUNT = 15;
+  WW.HOSTILE_TAKEOVER_MISS_PENALTY = 15;
   WW.TOO_QUICK_MS = 10000;
   WW.TOO_LATE_MS = 20000;
   WW.SCORE_PENALTY = 0.5;
@@ -86,13 +87,15 @@
       description: "Take 15 points from 1st place and split them among everyone else.",
       icon: "assets/sabotage-robin-hood.svg",
       noTarget: true,
-      note: "Takes from 1st place, shares with everyone.",
+      oncePerTurn: true,
+      note: "Once per turn. Takes from 1st place, shares with everyone.",
     },
     {
       id: "hostile_takeover",
       name: "Hostile Takeover",
       cost: 20,
-      description: "Take over all points your rival earns on their next turn",
+      description:
+        "Take over all points your rival earns on their next turn. If they don't enter a word, they lose 15 points.",
       icon: "assets/sabotage-hostile-takeover.svg",
     },
     {
@@ -270,6 +273,11 @@
     return letter.length === 1 ? letter : "";
   };
 
+  WW.alreadyBoughtThisTurn = function alreadyBoughtThisTurn(state, itemId) {
+    const bought = (state && state.shopBoughtThisTurn) || [];
+    return bought.indexOf(itemId) >= 0;
+  };
+
   WW.canBuySabotage = function canBuySabotage(
     state,
     buyerIndex,
@@ -290,6 +298,9 @@
     const buyer = state.players[buyerIndex];
     if (!buyer) {
       return { ok: false, reason: "insufficient_funds" };
+    }
+    if (item.oncePerTurn && WW.alreadyBoughtThisTurn(state, item.id)) {
+      return { ok: false, reason: "already_bought" };
     }
 
     if (item.noTarget) {

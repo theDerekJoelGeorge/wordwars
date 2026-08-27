@@ -76,6 +76,25 @@
     });
   }
 
+  function cloneScoreGains(gains) {
+    if (!gains || !gains.length) return [];
+    return gains.map(function (gain) {
+      return { playerId: gain.playerId, points: gain.points };
+    });
+  }
+
+  function pushScoreGain(gains, playerId, points) {
+    const amount = Number(points) || 0;
+    if (!playerId || amount <= 0) return;
+    for (let i = 0; i < gains.length; i += 1) {
+      if (gains[i].playerId === playerId) {
+        gains[i].points += amount;
+        return;
+      }
+    }
+    gains.push({ playerId: playerId, points: amount });
+  }
+
   function clonePlayers(players) {
     return players.map(function (player) {
       return {
@@ -126,6 +145,7 @@
             frozenSlots: cloneFrozenSlots(state.lastSubmitResult.frozenSlots),
             timedOut: state.lastSubmitResult.timedOut,
             opening: Boolean(state.lastSubmitResult.opening),
+            hostileMissPenalty: state.lastSubmitResult.hostileMissPenalty || 0,
             tiles: state.lastSubmitResult.tiles
               ? state.lastSubmitResult.tiles.slice()
               : null,
@@ -137,6 +157,8 @@
       suddenDeathRemaining: state.suddenDeathRemaining.slice(),
       lastShopMessage: state.lastShopMessage || null,
       lastShopPurchase: cloneShopPurchase(state.lastShopPurchase),
+      shopBoughtThisTurn: (state.shopBoughtThisTurn || []).slice(),
+      scoreGains: cloneScoreGains(state.scoreGains),
       letterPoints: cloneLetterPointsState(state.letterPoints),
       turnDurationMs:
         state.turnDurationMs == null ? WW.TURN_MS : state.turnDurationMs,
@@ -255,36 +277,44 @@
 
   function applyRobinHood(players, buyerIndex) {
     const tied = leaders(players);
-    if (!tied.length) return "Robin Hood — no leader to tax";
+    if (!tied.length) {
+      return { message: "Robin Hood — no leader to tax", gains: [] };
+    }
     const leaderIndex = tied[0];
     const leader = players[leaderIndex];
     const take = Math.min(WW.ROBIN_HOOD_AMOUNT, leader.score);
     if (take <= 0) {
-      return "Robin Hood — leader has no points to share";
+      return { message: "Robin Hood — leader has no points to share", gains: [] };
     }
     leader.score -= take;
     const recipients = players.filter(function (_, index) {
       return index !== leaderIndex;
     });
     if (!recipients.length) {
-      return "Robin Hood — no one to share with";
+      return { message: "Robin Hood — no one to share with", gains: [] };
     }
     const each = Math.floor(take / recipients.length);
     let remainder = take - each * recipients.length;
+    const gains = [];
     recipients.forEach(function (player) {
+      let got = each;
       player.score += each;
       if (remainder > 0) {
         player.score += 1;
+        got += 1;
         remainder -= 1;
       }
+      pushScoreGain(gains, player.id, got);
     });
-    return (
-      "Robin Hood — took " +
-      take +
-      " from " +
-      leader.name +
-      " and shared it"
-    );
+    return {
+      message:
+        "Robin Hood — took " +
+        take +
+        " from " +
+        leader.name +
+        " and shared it",
+      gains: gains,
+    };
   }
 
   function findPlayerIndex(players, playerId) {
@@ -327,6 +357,7 @@
       const amount = buyer.score;
       buyer.score = 0;
       target.score += amount;
+      pushScoreGain(ctx.scoreGains, target.id, amount);
       ctx.applied.push({
         type: "mystery_bankrupt_buyer",
         fromPlayerId: effect.fromPlayerId,
@@ -339,6 +370,7 @@
       const amount = target.score;
       target.score = 0;
       buyer.score += amount;
+      pushScoreGain(ctx.scoreGains, buyer.id, amount);
       ctx.applied.push({
         type: "mystery_jackpot",
         fromPlayerId: effect.fromPlayerId,
@@ -358,6 +390,7 @@
 
     if (outcome === "mystery_refund" && buyer) {
       buyer.score += WW.MYSTERY_REFUND_AMOUNT;
+      pushScoreGain(ctx.scoreGains, buyer.id, WW.MYSTERY_REFUND_AMOUNT);
       ctx.applied.push({
         type: "mystery_refund",
         fromPlayerId: effect.fromPlayerId,
@@ -395,9 +428,15 @@
       itemName: item.name,
       targetName: target ? target.name : null,
     };
+    if (item.oncePerTurn) {
+      next.shopBoughtThisTurn = (next.shopBoughtThisTurn || []).concat(item.id);
+    }
+    next.scoreGains = [];
 
     if (item.id === "robin_hood") {
-      next.lastShopMessage = applyRobinHood(next.players, check.buyerIndex);
+      const hood = applyRobinHood(next.players, check.buyerIndex);
+      next.lastShopMessage = hood.message;
+      next.scoreGains = hood.gains;
       return next;
     }
 
@@ -430,6 +469,7 @@
       const stolen = Math.min(WW.HEIST_AMOUNT, target.score);
       target.score -= stolen;
       buyer.score += stolen;
+      pushScoreGain(next.scoreGains, buyer.id, stolen);
       next.lastShopMessage =
         item.name + " — stole " + stolen + " from " + target.name;
     } else if (item.id === "hostile_takeover") {
@@ -629,11 +669,32 @@
     return points;
   }
 
+  function hostileMissPenalty(players, playerIndex, effects) {
+    const armed = (effects || []).some(function (effect) {
+      return effect.type === "hostile_takeover";
+    });
+    if (!armed) return 0;
+    const victim = players[playerIndex];
+    if (!victim) return 0;
+    const take = Math.min(
+      WW.HOSTILE_TAKEOVER_MISS_PENALTY,
+      Math.max(0, victim.score)
+    );
+    victim.score -= take;
+    return take;
+  }
+
   function applyTimeout(state) {
     const players = clonePlayers(state.players);
     const opening = isOpeningTurn(state);
+    let missPenalty = 0;
     if (!opening) {
       players[state.currentPlayerIndex].turnsTaken += 1;
+      missPenalty = hostileMissPenalty(
+        players,
+        state.currentPlayerIndex,
+        state.activeEffects
+      );
     }
     const tiles =
       state.phase === "spinning" ? emptyDraft(null) : state.draft.slice();
@@ -650,10 +711,11 @@
       turnEndsAt: null,
       lastSubmitResult: {
         word: null,
-        points: 0,
+        points: missPenalty ? -missPenalty : 0,
         frozenSlots: [],
         timedOut: true,
         opening: opening,
+        hostileMissPenalty: missPenalty,
         tiles: tiles,
       },
       invalidReason: null,
@@ -662,6 +724,8 @@
       suddenDeathRemaining: state.suddenDeathRemaining.slice(),
       lastShopMessage: state.lastShopMessage || null,
       lastShopPurchase: cloneShopPurchase(state.lastShopPurchase),
+      shopBoughtThisTurn: (state.shopBoughtThisTurn || []).slice(),
+      scoreGains: cloneScoreGains(state.scoreGains),
       letterPoints: cloneLetterPointsState(state.letterPoints),
       turnDurationMs:
         state.turnDurationMs == null ? WW.TURN_MS : state.turnDurationMs,
@@ -698,6 +762,8 @@
       suddenDeathRemaining: opts.suddenDeathRemaining || [],
       lastShopMessage: null,
       lastShopPurchase: null,
+      shopBoughtThisTurn: [],
+      scoreGains: cloneScoreGains(state.scoreGains),
       letterPoints: cloneLetterPointsState(state.letterPoints),
       turnDurationMs: WW.TURN_MS,
       activeEffects: [],
@@ -800,6 +866,8 @@
       suddenDeathRemaining: [],
       lastShopMessage: null,
       lastShopPurchase: null,
+      shopBoughtThisTurn: [],
+      scoreGains: [],
       letterPoints: action.letterPoints || WW.shuffleLetterPoints(random),
       turnDurationMs: WW.TURN_MS,
       activeEffects: [],
@@ -834,6 +902,8 @@
       suddenDeathRemaining: [],
       lastShopMessage: null,
       lastShopPurchase: null,
+      shopBoughtThisTurn: [],
+      scoreGains: [],
       letterPoints: null,
       turnDurationMs: WW.TURN_MS,
       activeEffects: [],
@@ -968,6 +1038,7 @@
         blockBackspace: false,
         applied: [],
         kept: [],
+        scoreGains: [],
         players: next.players,
         currentPlayerIndex: next.currentPlayerIndex,
       };
@@ -992,6 +1063,8 @@
 
       next.lastShopMessage = null;
       next.lastShopPurchase = null;
+      next.shopBoughtThisTurn = [];
+      next.scoreGains = cloneScoreGains(ctx.scoreGains);
       next.invalidReason = null;
       next.lastSubmitResult = null;
       next.turnDurationMs = ctx.turnMs;
@@ -1136,12 +1209,14 @@
         state
       );
 
+      const current = next.players[state.currentPlayerIndex];
+      const gains = [];
       const hostile = (state.activeEffects || []).find(function (effect) {
         return effect.type === "hostile_takeover";
       });
       const pointsToTarget = hostile ? 0 : points;
-      next.players[state.currentPlayerIndex].score += pointsToTarget;
-      next.players[state.currentPlayerIndex].turnsTaken += 1;
+      current.score += pointsToTarget;
+      current.turnsTaken += 1;
 
       if (hostile) {
         const attackerIndex = state.players.findIndex(function (player) {
@@ -1149,6 +1224,9 @@
         });
         if (attackerIndex >= 0) {
           next.players[attackerIndex].score += points;
+          if (next.players[attackerIndex].id !== current.id) {
+            pushScoreGain(gains, next.players[attackerIndex].id, points);
+          }
         }
       }
 
@@ -1162,8 +1240,12 @@
         });
         if (attackerIndex >= 0) {
           next.players[attackerIndex].score += bonus;
+          if (next.players[attackerIndex].id !== current.id) {
+            pushScoreGain(gains, next.players[attackerIndex].id, bonus);
+          }
         }
       }
+      next.scoreGains = gains;
       next.usedWords.push(word);
       next.lastWord = word;
       next.frozenSlots = [];

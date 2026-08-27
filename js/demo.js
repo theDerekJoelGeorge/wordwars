@@ -142,6 +142,7 @@
           tooQuick: false,
           tooLate: false,
           freezeCount: 1,
+          seeded: true,
         };
       },
 
@@ -179,6 +180,38 @@
           tooQuick: false,
           tooLate: true,
           freezeCount: 2,
+        };
+      },
+
+      "playing-hostile": function () {
+        return {
+          phase: "playing",
+          players: players,
+          currentPlayerIndex: 1,
+          lastWord: "CRANE",
+          frozenSlots: [{ index: 0, letter: "C" }],
+          usedWords: ["CRANE"],
+          draft: ["C", "", "", "", ""],
+          timeRemainingMs: 20000,
+          turnEndsAt: Date.now() + 20000,
+          lastSubmitResult: null,
+          invalidReason: null,
+          shakeNonce: 0,
+          isSuddenDeath: false,
+          suddenDeathRemaining: [],
+          lastShopMessage: null,
+          turnDurationMs: WW.TURN_MS,
+          activeEffects: [
+            { type: "hostile_takeover", fromPlayerId: "p1" },
+          ],
+          hideTimer: false,
+          reverseType: false,
+          tunnelVision: false,
+          requiredLetter: null,
+          tooQuick: false,
+          tooLate: false,
+          freezeCount: 1,
+          seeded: true,
         };
       },
 
@@ -478,6 +511,7 @@
     "handoff-mid",
     "handoff-shop",
     "playing-chaos",
+    "playing-hostile",
     "handoff-sudden",
     "spinning",
     "playing-empty",

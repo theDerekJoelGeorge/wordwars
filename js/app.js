@@ -65,6 +65,7 @@
   const shopItemsEl = document.getElementById("shop-items");
   const shopFlashEl = document.getElementById("shop-flash");
   const shopPointsValueEl = document.getElementById("shop-points-value");
+  const shopPointsGainEl = document.getElementById("shop-points-gain");
   const handoffBoardEl = document.getElementById("handoff-board");
   const handoffWordEl = document.getElementById("handoff-word");
   const handoffEffectsEl = document.getElementById("handoff-effects");
@@ -98,6 +99,7 @@
   const landingRulesBtn = document.getElementById("landing-rules-btn");
   const landingShareBtn = document.getElementById("landing-share-btn");
   const appEl = document.getElementById("app");
+  const siteCreditEl = document.getElementById("site-credit");
 
   let state = WW.createGame();
   let setupCount = 2;
@@ -117,6 +119,7 @@
   let shopWasOpen = false;
   let prevPhase = "";
   let lastTimerCue = 0;
+  let lastGainSignature = "";
   let onboardingStep = 0;
   let landingTypeTimer = 0;
   let onLanding = Boolean(landingEl && !landingEl.hidden);
@@ -679,11 +682,13 @@
   }
 
   function syncBackgroundInert() {
-    if (!appEl) return;
     const open = overlayOpen();
-    appEl.inert = open;
-    if (open) appEl.setAttribute("aria-hidden", "true");
-    else appEl.removeAttribute("aria-hidden");
+    if (appEl) {
+      appEl.inert = open;
+      if (open) appEl.setAttribute("aria-hidden", "true");
+      else appEl.removeAttribute("aria-hidden");
+    }
+    if (siteCreditEl) siteCreditEl.inert = open;
   }
 
   function pauseTimerForOverlay() {
@@ -1099,6 +1104,13 @@
     if (type === "obsession" && effect && effect.letter) {
       return "Must include the letter " + effect.letter + ".";
     }
+    if (type === "hostile_takeover") {
+      return (
+        "Takes the points you earn this turn. If you don't enter a word, you lose " +
+        WW.HOSTILE_TAKEOVER_MISS_PENALTY +
+        " points."
+      );
+    }
     const item = WW.getShopItem(type === "immunity" ? "not_today" : type);
     return item ? item.description : "";
   }
@@ -1126,6 +1138,12 @@
           : playerTag(effect.fromPlayerId).toUpperCase();
         const tipId = wrapEl.id + "-tip-" + index;
         const description = sabotageDescription(effect.type, effect);
+        const missNote =
+          effect.type === "hostile_takeover"
+            ? '<span class="effect-miss">' +
+              escapeHtml(hostileMissHint()) +
+              "</span>"
+            : "";
         return (
           '<div class="effect-chip" role="listitem">' +
           '<div class="effect-icon" aria-hidden="true">' +
@@ -1141,6 +1159,7 @@
           tipId +
           '">' +
           escapeHtml(sabotageName(effect.type, effect)) +
+          missNote +
           '<span class="effect-tip" id="' +
           tipId +
           '" role="tooltip">' +
@@ -1183,6 +1202,34 @@
     }
   }
 
+  function scoreGainFor(playerId) {
+    const gains = state.scoreGains || [];
+    for (let i = 0; i < gains.length; i += 1) {
+      if (gains[i].playerId === playerId) return gains[i].points;
+    }
+    return 0;
+  }
+
+  function armScoreGainPops(root) {
+    if (!root) return;
+    const nodes = root.querySelectorAll(".score-gain");
+    const sig = (state.scoreGains || [])
+      .map(function (gain) {
+        return gain.playerId + ":" + gain.points;
+      })
+      .join("|");
+    if (!nodes.length) return;
+    const restart = sig !== lastGainSignature;
+    lastGainSignature = sig;
+    nodes.forEach(function (el) {
+      if (restart || !el.classList.contains("is-on")) {
+        el.classList.remove("is-on");
+        void el.offsetWidth;
+      }
+      el.classList.add("is-on");
+    });
+  }
+
   function paintScoreboard() {
     if (!state.players.length || state.phase === "setup" || shopOpen) {
       scoreboardEl.classList.remove("is-on");
@@ -1194,12 +1241,18 @@
       .map(function (player, index) {
         const current = index === state.currentPlayerIndex ? " is-current" : "";
         const color = player.color || PLAYER_COLORS[index] || "#fbab20";
+        const gain = scoreGainFor(player.id);
+        const gainHtml = gain
+          ? '<span class="score-gain">+' + gain + "</span>"
+          : "";
         return (
           '<div class="score-chip' +
           current +
           '" role="listitem"' +
           (index === state.currentPlayerIndex ? ' aria-current="true"' : "") +
-          '><span class="score-avatar" aria-hidden="true" style="background:' +
+          ' data-player-id="' +
+          escapeHtml(player.id) +
+          '"><span class="score-avatar" aria-hidden="true" style="background:' +
           escapeHtml(color) +
           ";color:" +
           avatarInk(color) +
@@ -1207,12 +1260,15 @@
           escapeHtml(playerInitials(player.name)) +
           '</span><span class="name">' +
           escapeHtml(player.name) +
-          '</span><span class="pts">' +
+          '</span><span class="pts-wrap">' +
+          gainHtml +
+          '<span class="pts">' +
           player.score +
-          "</span></div>"
+          "</span></span></div>"
         );
       })
       .join("");
+    armScoreGainPops(scoreboardEl);
   }
 
   function paintBoard() {
@@ -1283,6 +1339,18 @@
     }
   }
 
+  function hasHostileTakeover() {
+    return (state.activeEffects || []).some(function (effect) {
+      return effect.type === "hostile_takeover";
+    });
+  }
+
+  function hostileMissHint() {
+    return (
+      "Enter a word or lose " + WW.HOSTILE_TAKEOVER_MISS_PENALTY + " pts"
+    );
+  }
+
   function flashCopy() {
     const reason = state.invalidReason;
     if (reason === "incomplete") return "Need five letters";
@@ -1294,33 +1362,42 @@
     }
     if (state.phase === "revealing" && state.lastSubmitResult) {
       if (state.lastSubmitResult.timedOut) {
-        return state.lastSubmitResult.opening ? "Time’s up" : "Time — 0 pts";
+        if (state.lastSubmitResult.opening) return "Time’s up";
+        const lost = state.lastSubmitResult.hostileMissPenalty;
+        if (lost) return "Time — −" + lost + " pts";
+        return "Time — 0 pts";
       }
       if (state.lastSubmitResult.opening) return "First word";
       return "+" + state.lastSubmitResult.points + " pts";
     }
+    let copy = "Any five-letter word";
     if (state.phase === "spinning") {
       const count = state.freezeCount || 1;
-      return count > 1
-        ? "Picking " + count + " letters…"
-        : "Picking a letter…";
-    }
-    if (state.frozenSlots && state.frozenSlots.length) {
+      copy =
+        count > 1
+          ? "Picking " + count + " letters…"
+          : "Picking a letter…";
+    } else if (state.frozenSlots && state.frozenSlots.length) {
       if (state.frozenSlots.length === 1) {
         const slot = state.frozenSlots[0];
-        return (
-          "Keep " + slot.letter + " in slot " + (slot.index + 1)
-        );
+        copy = "Keep " + slot.letter + " in slot " + (slot.index + 1);
+      } else {
+        copy = "Keep " + state.frozenSlots.length + " frozen letters";
       }
-      return "Keep " + state.frozenSlots.length + " frozen letters";
+    } else if (state.requiredLetter) {
+      copy = "Must include " + state.requiredLetter;
+    } else if (state.reverseType) {
+      copy = "Type backwards — right to left";
     }
-    if (state.requiredLetter) {
-      return "Must include " + state.requiredLetter;
+    if (
+      hasHostileTakeover() &&
+      (state.phase === "playing" || state.phase === "spinning")
+    ) {
+      const miss = hostileMissHint();
+      if (copy === "Any five-letter word") return miss;
+      return copy + " · " + miss;
     }
-    if (state.reverseType) {
-      return "Type backwards — right to left";
-    }
-    return "Any five-letter word";
+    return copy;
   }
 
   function paintPlayChrome() {
@@ -1436,6 +1513,9 @@
       return p.id !== player.id;
     });
     return WW.SHOP_ITEMS.some(function (item) {
+      if (item.oncePerTurn && WW.alreadyBoughtThisTurn(state, item.id)) {
+        return false;
+      }
       if (item.noTarget) {
         return player.score >= WW.sabotagePrice(item, null);
       }
@@ -1500,6 +1580,18 @@
     if (shopPointsValueEl) {
       shopPointsValueEl.textContent = String(player.score);
     }
+    if (shopPointsGainEl) {
+      const gain = scoreGainFor(player.id);
+      if (gain) {
+        shopPointsGainEl.hidden = false;
+        shopPointsGainEl.textContent = "+" + gain;
+        armScoreGainPops(shopPointsGainEl.parentElement);
+      } else {
+        shopPointsGainEl.hidden = true;
+        shopPointsGainEl.textContent = "";
+        shopPointsGainEl.classList.remove("is-on");
+      }
+    }
 
     paintShopFlash();
 
@@ -1521,7 +1613,10 @@
         opponents[0] ||
         null;
       const price = WW.sabotagePrice(item, selectedTarget);
+      const alreadyBought =
+        item.oncePerTurn && WW.alreadyBoughtThisTurn(state, item.id);
       const canAfford = player.score >= price;
+      const canBuy = canAfford && !alreadyBought;
       const options = opponents
         .map(function (target) {
           return (
@@ -1552,13 +1647,17 @@
         targetHtml =
           '<p class="shop-item-note">' + escapeHtml(item.note) + "</p>";
       }
-      const buyLabel = canAfford
-        ? ""
-        : ' aria-label="Buy ' +
+      const buyLabel = alreadyBought
+        ? ' aria-label="Buy ' +
           escapeHtml(item.name) +
-          " for " +
-          price +
-          ' points, not enough points"';
+          ', already bought this turn"'
+        : canBuy
+          ? ""
+          : ' aria-label="Buy ' +
+            escapeHtml(item.name) +
+            " for " +
+            price +
+            ' points, not enough points"';
       return (
         '<article class="shop-item" data-item-id="' +
         escapeHtml(item.id) +
@@ -1573,11 +1672,13 @@
         targetHtml +
         "</div>" +
         '<button type="button" class="shop-buy"' +
-        (canAfford ? "" : " disabled") +
+        (canBuy ? "" : " disabled") +
         buyLabel +
-        ">Buy for " +
-        price +
-        " points</button></article>"
+        ">" +
+        (alreadyBought
+          ? "Bought this turn"
+          : "Buy for " + price + " points") +
+        "</button></article>"
       );
     }).join("");
 
@@ -2016,7 +2117,16 @@
       }
       if (phaseChanged) {
         lastTimerCue = 0;
-        announce(handoffNameEl.textContent);
+        const player = WW.currentPlayer(state);
+        const pendingHostile = (player && player.pendingEffects || []).some(
+          function (effect) {
+            return effect.type === "hostile_takeover";
+          }
+        );
+        announce(
+          handoffNameEl.textContent +
+            (pendingHostile ? ". " + hostileMissHint() : "")
+        );
         window.setTimeout(function () {
           if (state.phase === "handoff" && !shopOpen && !isAiSeat()) {
             handoffNameEl.focus();
@@ -2055,8 +2165,17 @@
         if (phaseChanged) {
           lastTimerCue = 0;
           const player = WW.currentPlayer(state);
-          if (player) announce(player.name + " is playing");
+          if (player) {
+            announce(
+              player.name +
+                " is playing" +
+                (hasHostileTakeover() ? ". " + hostileMissHint() : "")
+            );
+          }
         }
+      } else if (state.phase === "spinning" && phaseChanged && hasHostileTakeover()) {
+        announce(hostileMissHint());
+        letterInput && letterInput.blur();
       } else if (letterInput) {
         letterInput.blur();
       }

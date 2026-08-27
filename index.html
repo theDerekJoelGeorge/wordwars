@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=results-mobile" />
+    <link rel="stylesheet" href="css/styles.css?v=site-credit-3" />
     <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
     <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
   </head>
@@ -61,27 +61,6 @@
           </button>
         </div>
       </main>
-
-      <footer class="landing-credit">
-        <p>
-          this game is a brainchild of
-          <a
-            class="landing-human"
-            href="https://www.thederekjoel.com"
-            target="_blank"
-            rel="noopener noreferrer"
-          >this human</a>
-        </p>
-        <a
-          class="landing-credit-logo"
-          href="https://www.thederekjoel.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Derek Joel portfolio"
-        >
-          <img src="assets/logo-orange.png" alt="" width="48" height="39" />
-        </a>
-      </footer>
     </div>
 
     <div class="app" id="app" hidden>
@@ -346,7 +325,10 @@
             <h2 class="shop-title" id="shop-title">the sabotage shop</h2>
             <p class="shop-points">
               your points:
-              <span class="shop-points-value" id="shop-points-value">0</span>
+              <span class="pts-wrap">
+                <span class="score-gain" id="shop-points-gain" hidden></span>
+                <span class="shop-points-value" id="shop-points-value">0</span>
+              </span>
             </p>
             <p id="shop-flash" class="shop-flash" role="status"></p>
             <button type="button" class="shop-close" id="shop-close-btn">close</button>
@@ -511,13 +493,34 @@
       </div>
     </div>
 
+    <footer class="site-credit" id="site-credit">
+      <p>
+        this game is a brainchild of
+        <a
+          class="landing-human"
+          href="https://www.thederekjoel.com"
+          target="_blank"
+          rel="noopener noreferrer"
+        >this human</a>
+      </p>
+      <a
+        class="landing-credit-logo"
+        href="https://www.thederekjoel.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Derek Joel portfolio"
+      >
+        <img src="assets/logo-orange.png" alt="" width="48" height="39" />
+      </a>
+    </footer>
+
     <script src="js/words.js?v=common-words"></script>
     <script src="js/scoring.js?v=timer-fix"></script>
     <script src="js/dictionary.js"></script>
-    <script src="js/shop.js?v=shop-notes"></script>
-    <script src="js/engine.js?v=ai-v5"></script>
+    <script src="js/shop.js?v=hostile-miss"></script>
+    <script src="js/engine.js?v=score-gain"></script>
     <script src="js/ai.js?v=ai-sabotage-mix"></script>
-    <script src="js/demo.js?v=word-log-2"></script>
-    <script src="js/app.js?v=ai-remove"></script>
+    <script src="js/demo.js?v=hostile-miss"></script>
+    <script src="js/app.js?v=site-credit"></script>
   </body>
 </html>
