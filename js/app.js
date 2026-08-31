@@ -670,6 +670,17 @@
   function startHosting() {
     flow = "net";
     net.host(myOnlineName(), myOnlineColor());
+    onlineView = {
+      screen: "lobby",
+      code: net.code(),
+      rounds: WW.TURNS_PER_PLAYER,
+      you: null,
+      seats: [],
+      canStart: false,
+      waiting: false,
+      reconnecting: false,
+      game: null,
+    };
     render();
   }
 
@@ -1088,6 +1099,9 @@
   }
 
   function dispatch(action) {
+    if (flow === "net" && (!onlineView || onlineView.screen !== "game")) {
+      return;
+    }
     if (isOnline() && onlineView.screen === "game") {
       if (action.type === "TICK") {
         paintTimer();
@@ -2894,7 +2908,7 @@
       prevPhase = "kicked";
       return;
     }
-    if (isOnline() && onlineView.screen === "lobby") {
+    if (flow === "net" && (!onlineView || onlineView.screen === "lobby")) {
       showScreen("lobby");
       paintLobby();
       shopEl.hidden = true;
