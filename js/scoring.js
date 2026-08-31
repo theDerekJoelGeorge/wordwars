@@ -101,6 +101,30 @@
     return WW.LETTER_POINTS;
   };
 
+  WW.GOLDEN_LETTER_VALUE = 10;
+
+  WW.turnLetterPoints = function turnLetterPoints(state) {
+    const map = WW.cloneLetterPoints(WW.getLetterPoints(state));
+    if (state && state.deadLetter) {
+      map[String(state.deadLetter).toUpperCase()] = 0;
+    }
+    if (state && state.goldenLetter) {
+      map[String(state.goldenLetter).toUpperCase()] = WW.GOLDEN_LETTER_VALUE;
+    }
+    return map;
+  };
+
+  WW.isPalindrome = function isPalindrome(word) {
+    const w = String(word || "").toLowerCase();
+    return w.length === WW.WORD_LENGTH && w === w.split("").reverse().join("");
+  };
+
+  WW.pickAlphabetLetter = function pickAlphabetLetter(rng) {
+    const random = rng || Math.random;
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    return alphabet.charAt(Math.floor(random() * alphabet.length) % alphabet.length);
+  };
+
   WW.scoreWord = function scoreWord(word) {
     return WW.wordValue(word);
   };

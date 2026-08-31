@@ -10,10 +10,9 @@
   WW.TOO_QUICK_MS = 10000;
   WW.TOO_LATE_MS = 20000;
   WW.SCORE_PENALTY = 0.5;
-  WW.MYSTERY_GIFT_POINTS = 10;
-  WW.MYSTERY_TIME_BONUS_MS = 5000;
-  WW.MYSTERY_REFUND_AMOUNT = 20;
   WW.SUI_VOWEL_POINTS = 7;
+  WW.MYSTERY_SCORE_DOUBLE = 2;
+  WW.MYSTERY_SCORE_HALF = 0.5;
 
   WW.countVowels = function countVowels(word) {
     return String(word || "")
@@ -132,28 +131,23 @@
       id: "mystery",
       name: "Mystery",
       cost: 40,
-      description: "Whatever happens is on you for buying this sabotage.",
+      description:
+        "A random prank is revealed on their turn. Whatever happens is on you.",
       icon: "assets/sabotage-mystery.svg",
     },
   ];
 
   WW.MYSTERY_OUTCOMES = [
-    { type: "mystery_nothing", weight: 3 },
-    { type: "mystery_bankrupt_buyer", weight: 2 },
-    { type: "mystery_swap_all", weight: 2 },
-    { type: "mystery_jackpot", weight: 2 },
-    { type: "mystery_refund", weight: 2 },
-    { type: "mystery_gift", weight: 2 },
-    { type: "mystery_time", weight: 2 },
-    { type: "time_tax", weight: 2 },
-    { type: "clock_block", weight: 2 },
-    { type: "double_trouble", weight: 2 },
-    { type: "too_quick", weight: 2 },
-    { type: "too_late", weight: 2 },
-    { type: "tunnel_vision", weight: 2 },
-    { type: "no_scope", weight: 1 },
-    { type: "hostile_takeover", weight: 1 },
-    { type: "triple_trouble", weight: 1 },
+    { type: "mystery_nothing", weight: 1 },
+    { type: "mystery_double", weight: 1 },
+    { type: "mystery_half", weight: 1 },
+    { type: "mystery_oracle", weight: 1 },
+    { type: "mystery_dead_letter", weight: 1 },
+    { type: "mystery_wildcard", weight: 1 },
+    { type: "mystery_golden_letter", weight: 1 },
+    { type: "mystery_charity", weight: 1 },
+    { type: "mystery_palindrome", weight: 1 },
+    { type: "mystery_copycat", weight: 1 },
   ];
 
   WW.pickMysteryOutcome = function pickMysteryOutcome(rng) {
@@ -171,39 +165,61 @@
     return pool[pool.length - 1].type;
   };
 
+  WW.isMysteryOutcome = function isMysteryOutcome(type) {
+    return String(type || "").indexOf("mystery_") === 0;
+  };
+
   WW.mysteryOutcomeLabel = function mysteryOutcomeLabel(type) {
     if (type === "mystery_nothing") return "Nothing Happened";
-    if (type === "mystery_bankrupt_buyer") return "Bankrupt";
-    if (type === "mystery_swap_all") return "Score Shuffle";
-    if (type === "mystery_jackpot") return "Jackpot";
-    if (type === "mystery_refund") return "Refund";
-    if (type === "mystery_gift") return "Lucky Bonus (+" + WW.MYSTERY_GIFT_POINTS + " pts)";
-    if (type === "mystery_time") return "Extra Time (+5s)";
+    if (type === "mystery_double") return "Double or Nothing";
+    if (type === "mystery_half") return "Half Off";
+    if (type === "mystery_oracle") return "Oracle";
+    if (type === "mystery_dead_letter") return "Dead Letter";
+    if (type === "mystery_wildcard") return "Wildcard";
+    if (type === "mystery_golden_letter") return "Golden Letter";
+    if (type === "mystery_charity") return "Charity";
+    if (type === "mystery_palindrome") return "Palindrome";
+    if (type === "mystery_copycat") return "Copy Cat";
     const item = WW.getShopItem(type);
     return item ? item.name : String(type || "");
   };
 
-  WW.mysteryOutcomeDescription = function mysteryOutcomeDescription(type) {
+  WW.mysteryOutcomeDescription = function mysteryOutcomeDescription(type, effect) {
     if (type === "mystery_nothing") {
       return "The prank fizzled — absolutely nothing happened.";
     }
-    if (type === "mystery_bankrupt_buyer") {
-      return "All of the buyer's points were transferred to this rival.";
+    if (type === "mystery_double") {
+      return "This rival's word scores double this turn.";
     }
-    if (type === "mystery_swap_all") {
-      return "Everyone's scores were shuffled around the table.";
+    if (type === "mystery_half") {
+      return "This rival's word scores half this turn.";
     }
-    if (type === "mystery_jackpot") {
-      return "The buyer stole all of this rival's points.";
+    if (type === "mystery_oracle") {
+      return "This rival may peek at the highest-scoring word that fits the board.";
     }
-    if (type === "mystery_refund") {
-      return "The buyer got their points back.";
+    if (type === "mystery_dead_letter") {
+      const letter = effect && effect.letter;
+      return letter
+        ? letter + " scores 0 this turn."
+        : "One random letter scores 0 this turn.";
     }
-    if (type === "mystery_gift") {
-      return "This rival gained " + WW.MYSTERY_GIFT_POINTS + " bonus points.";
+    if (type === "mystery_wildcard") {
+      return "The frozen letter becomes a blank — any letter can go in that slot.";
     }
-    if (type === "mystery_time") {
-      return "This rival gets +5 seconds on their turn.";
+    if (type === "mystery_golden_letter") {
+      const letter = effect && effect.letter;
+      return letter
+        ? letter + " is worth " + WW.GOLDEN_LETTER_VALUE + " this turn."
+        : "One random letter is worth " + WW.GOLDEN_LETTER_VALUE + " this turn.";
+    }
+    if (type === "mystery_charity") {
+      return "Half of this rival's word points go to last place.";
+    }
+    if (type === "mystery_palindrome") {
+      return "This rival must play a palindrome.";
+    }
+    if (type === "mystery_copycat") {
+      return "The word also scores for the player who bought Mystery.";
     }
     const item = WW.getShopItem(type);
     return item ? item.description : "";
@@ -213,17 +229,7 @@
     const item = WW.getShopItem(type);
     if (item) return item.icon;
     if (type === "immunity") return "assets/sabotage-not-today.svg";
-    if (
-      type === "mystery_gift" ||
-      type === "mystery_time" ||
-      type === "mystery_nothing" ||
-      type === "mystery_bankrupt_buyer" ||
-      type === "mystery_swap_all" ||
-      type === "mystery_jackpot" ||
-      type === "mystery_refund"
-    ) {
-      return "assets/sabotage-mystery.svg";
-    }
+    if (WW.isMysteryOutcome(type)) return "assets/sabotage-mystery.svg";
     return "";
   };
 
@@ -245,12 +251,21 @@
     }
     if (type === "mystery") return "???";
     if (type === "mystery_nothing") return "nothing";
-    if (type === "mystery_bankrupt_buyer") return "bankrupt";
-    if (type === "mystery_swap_all") return "shuffle";
-    if (type === "mystery_jackpot") return "jackpot";
-    if (type === "mystery_refund") return "refund";
-    if (type === "mystery_gift") return "+" + WW.MYSTERY_GIFT_POINTS;
-    if (type === "mystery_time") return "+5s";
+    if (type === "mystery_double") return "2× word";
+    if (type === "mystery_half") return "½ word";
+    if (type === "mystery_oracle") return "hint";
+    if (type === "mystery_dead_letter") {
+      return effect && effect.letter ? effect.letter + " = 0" : "dead letter";
+    }
+    if (type === "mystery_wildcard") return "blank freeze";
+    if (type === "mystery_golden_letter") {
+      return effect && effect.letter
+        ? effect.letter + " = " + WW.GOLDEN_LETTER_VALUE
+        : "golden";
+    }
+    if (type === "mystery_charity") return "½ to last";
+    if (type === "mystery_palindrome") return "palindrome";
+    if (type === "mystery_copycat") return "copycat";
     if (type === "mystery_resolved" && effect && effect.resolvedType) {
       return WW.effectLabel(effect.resolvedType, effect);
     }

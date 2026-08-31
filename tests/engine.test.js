@@ -33,6 +33,11 @@ function typeWord(state, word, rng) {
   return WW.reduce(next, { type: "SUBMIT" }, rng);
 }
 
+function startTargetTurn(state, rng) {
+  const next = Object.assign({}, state, { currentPlayerIndex: 1 });
+  return beginPlay(next, 1_000, rng);
+}
+
 function stableLetterPoints() {
   return WW.cloneLetterPoints(WW.LETTER_POINTS);
 }
@@ -587,7 +592,7 @@ test("BUY_SABOTAGE clock_block hides the timer on the target's next turn", () =>
 });
 
 test("BUY_SABOTAGE mystery reveals its real sabotage only on the rival's turn", () => {
-  const rng = rngSeq([18 / 30, 0.4]);
+  const rng = rngSeq([0.05]);
   let state = handoffWithScores([50, 0], rng);
 
   state = WW.reduce(
@@ -600,21 +605,23 @@ test("BUY_SABOTAGE mystery reveals its real sabotage only on the rival's turn", 
   assert.equal(state.players[1].pendingEffects[0].type, "mystery_resolved");
   assert.equal(
     state.players[1].pendingEffects[0].resolvedType,
-    "clock_block"
+    "mystery_nothing"
   );
 
   state = beginPlay(state, 1_000, rng);
+  assert.equal(state.currentPlayerIndex, 0);
+  assert.equal(state.activeEffects.length, 0);
   state = typeWord(state, "crane", rng);
   state = WW.reduce(state, { type: "REVEAL_DONE" }, rng);
-
-  state = WW.reduce(state, { type: "READY", nowMs: 2_000 }, rng);
-  assert.equal(state.hideTimer, true);
+  state = beginPlay(state, 2_000, rng);
+  assert.ok(state.activeEffects.some(function (e) {
+    return e.type === "mystery_nothing";
+  }));
   assert.equal(state.players[1].pendingEffects.length, 0);
-  assert.ok(state.activeEffects.some(function (e) { return e.type === "clock_block"; }));
 });
 
 test("BUY_SABOTAGE mystery prank can do nothing on reveal", () => {
-  const rng = rngSeq([0, 0.4]);
+  const rng = rngSeq([0.05]);
   let state = handoffWithScores([50, 20], rng);
   state = WW.reduce(
     state,
@@ -622,48 +629,188 @@ test("BUY_SABOTAGE mystery prank can do nothing on reveal", () => {
     rng
   );
   assert.equal(state.players[1].pendingEffects[0].resolvedType, "mystery_nothing");
-  state = beginPlay(state, 1_000, rng);
+  state = startTargetTurn(state, rng);
   state = typeWord(state, "crane", rng);
-  state = WW.reduce(state, { type: "REVEAL_DONE" }, rng);
-  state = WW.reduce(state, { type: "READY", nowMs: 2_000 }, rng);
-  assert.ok(state.activeEffects.some(function (e) { return e.type === "mystery_nothing"; }));
+  assert.equal(state.players[0].score, 10);
+  assert.equal(state.players[1].score, 27);
+});
+
+test("BUY_SABOTAGE mystery double or nothing doubles the word score", () => {
+  const rng = rngSeq([0.15]);
+  let state = handoffWithScores([50, 0], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
+    rng
+  );
+  assert.equal(state.players[1].pendingEffects[0].resolvedType, "mystery_double");
+  state = startTargetTurn(state, rng);
+  assert.equal(state.scoreMultiplier, 2);
+  state = typeWord(state, "crane", rng);
+  assert.equal(state.lastSubmitResult.points, 14);
+  assert.equal(state.players[1].score, 14);
+});
+
+test("BUY_SABOTAGE mystery half off halves the word score", () => {
+  const rng = rngSeq([0.25]);
+  let state = handoffWithScores([50, 0], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
+    rng
+  );
+  assert.equal(state.players[1].pendingEffects[0].resolvedType, "mystery_half");
+  state = startTargetTurn(state, rng);
+  state = typeWord(state, "crane", rng);
+  assert.equal(state.lastSubmitResult.points, 4);
+  assert.equal(state.players[1].score, 4);
+});
+
+test("BUY_SABOTAGE mystery oracle offers a one-shot best-word hint", () => {
+  const rng = rngSeq([0.35]);
+  let state = handoffWithScores([50, 0], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
+    rng
+  );
+  assert.equal(state.players[1].pendingEffects[0].resolvedType, "mystery_oracle");
+  state = startTargetTurn(state, rng);
+  assert.equal(state.oracleAvailable, true);
+  assert.equal(state.oracleUsed, false);
+  assert.equal(state.oracleWord, WW.bestWordForBoard(state));
+  state = WW.reduce(state, { type: "USE_ORACLE" }, rng);
+  assert.equal(state.oracleUsed, true);
+  assert.ok(state.oracleWord);
+});
+
+test("BUY_SABOTAGE mystery dead letter scores that letter as 0", () => {
+  const rng = rngSeq([0.45, 4 / 26]);
+  let state = handoffWithScores([50, 0], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
+    rng
+  );
+  assert.equal(
+    state.players[1].pendingEffects[0].resolvedType,
+    "mystery_dead_letter"
+  );
+  state = startTargetTurn(state, rng);
+  assert.equal(state.deadLetter, "E");
+  state = typeWord(state, "crane", rng);
+  assert.equal(state.lastSubmitResult.points, 6);
+});
+
+test("BUY_SABOTAGE mystery wildcard blanks the frozen letter", () => {
+  const rng = rngSeq([0.55, 0.4]);
+  let state = handoffWithScores([50, 0], rng);
+  state.lastWord = "crane";
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
+    rng
+  );
+  assert.equal(
+    state.players[1].pendingEffects[0].resolvedType,
+    "mystery_wildcard"
+  );
+  state = startTargetTurn(state, rng);
+  assert.equal(state.frozenSlots.length, 1);
+  assert.equal(state.frozenSlots[0].index, 2);
+  assert.equal(state.frozenSlots[0].wild, true);
+  assert.equal(state.frozenSlots[0].letter, "");
+  assert.deepEqual(state.draft, ["", "", "", "", ""]);
+  state = typeWord(state, "stone", rng);
+  assert.equal(state.phase, "revealing");
+  assert.equal(state.lastWord, "stone");
+});
+
+test("BUY_SABOTAGE mystery golden letter is worth 10", () => {
+  const rng = rngSeq([0.65, 2 / 26]);
+  let state = handoffWithScores([50, 0], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
+    rng
+  );
+  assert.equal(
+    state.players[1].pendingEffects[0].resolvedType,
+    "mystery_golden_letter"
+  );
+  state = startTargetTurn(state, rng);
+  assert.equal(state.goldenLetter, "C");
+  state = typeWord(state, "crane", rng);
+  assert.equal(state.lastSubmitResult.points, 14);
+});
+
+test("BUY_SABOTAGE mystery charity shares half with last place", () => {
+  const rng = rngSeq([0.75]);
+  let state = handoffWithScores([50, 30, 5], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
+    rng
+  );
+  assert.equal(state.players[1].pendingEffects[0].resolvedType, "mystery_charity");
+  state = startTargetTurn(state, rng);
+  state = typeWord(state, "crane", rng);
+  assert.equal(state.players[1].score, 34);
+  assert.equal(state.players[2].score, 8);
+  assert.deepEqual(state.scoreGains, [{ playerId: "p3", points: 3 }]);
+});
+
+test("BUY_SABOTAGE mystery palindrome rejects non-palindromes", () => {
+  const rng = rngSeq([0.85]);
+  let state = handoffWithScores([50, 0], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
+    rng
+  );
+  assert.equal(
+    state.players[1].pendingEffects[0].resolvedType,
+    "mystery_palindrome"
+  );
+  state = startTargetTurn(state, rng);
+  state = typeWord(state, "crane", rng);
+  assert.equal(state.phase, "playing");
+  assert.equal(state.invalidReason, "not_palindrome");
+  state = WW.reduce(state, { type: "BACKSPACE" }, rng);
+  state = WW.reduce(state, { type: "BACKSPACE" }, rng);
+  state = WW.reduce(state, { type: "BACKSPACE" }, rng);
+  state = WW.reduce(state, { type: "BACKSPACE" }, rng);
+  state = WW.reduce(state, { type: "BACKSPACE" }, rng);
+  state = typeWord(state, "level", rng);
+  assert.equal(state.phase, "revealing");
+  assert.equal(state.lastWord, "level");
+});
+
+test("BUY_SABOTAGE mystery copy cat scores the word for the buyer too", () => {
+  const rng = rngSeq([0.95]);
+  let state = handoffWithScores([50, 0], rng);
+  state = WW.reduce(
+    state,
+    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
+    rng
+  );
+  assert.equal(state.players[1].pendingEffects[0].resolvedType, "mystery_copycat");
+  state = startTargetTurn(state, rng);
+  state = typeWord(state, "crane", rng);
+  assert.equal(state.players[1].score, 7);
   assert.equal(state.players[0].score, 17);
-  assert.equal(state.players[1].score, 20);
+  assert.deepEqual(state.scoreGains, [{ playerId: "p1", points: 7 }]);
 });
 
-test("BUY_SABOTAGE mystery prank can bankrupt the buyer", () => {
-  const rng = rngSeq([4 / 30, 0.4]);
-  let state = handoffWithScores([50, 20], rng);
-  state = WW.reduce(
-    state,
-    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
-    rng
+test("mystery outcomes are not shop items", () => {
+  assert.ok(WW.getShopItem("mystery"));
+  assert.equal(WW.getShopItem("mystery_double"), null);
+  assert.equal(WW.getShopItem("oracle"), null);
+  assert.ok(
+    WW.MYSTERY_OUTCOMES.every(function (entry) {
+      return entry.type.indexOf("mystery_") === 0;
+    })
   );
-  assert.equal(state.players[1].pendingEffects[0].resolvedType, "mystery_bankrupt_buyer");
-  state = beginPlay(state, 1_000, rng);
-  state = typeWord(state, "crane", rng);
-  state = WW.reduce(state, { type: "REVEAL_DONE" }, rng);
-  state = WW.reduce(state, { type: "READY", nowMs: 2_000 }, rng);
-  assert.equal(state.players[0].score, 0);
-  assert.equal(state.players[1].score, 37);
-});
-
-test("BUY_SABOTAGE mystery prank can shuffle everyone's scores", () => {
-  const rng = rngSeq([6 / 30, 0.4]);
-  let state = handoffWithScores([50, 20, 10], rng);
-  state = WW.reduce(
-    state,
-    { type: "BUY_SABOTAGE", itemId: "mystery", targetId: "p2" },
-    rng
-  );
-  assert.equal(state.players[1].pendingEffects[0].resolvedType, "mystery_swap_all");
-  state = beginPlay(state, 1_000, rng);
-  state = typeWord(state, "crane", rng);
-  state = WW.reduce(state, { type: "REVEAL_DONE" }, rng);
-  state = WW.reduce(state, { type: "READY", nowMs: 2_000 }, rng);
-  assert.equal(state.players[0].score, 20);
-  assert.equal(state.players[1].score, 10);
-  assert.equal(state.players[2].score, 17);
 });
 
 test("BUY_SABOTAGE not_cheap doubles the cost of sabotages against the buyer", () => {

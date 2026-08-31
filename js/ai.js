@@ -2,7 +2,7 @@
   const WW = root.WordWars || (root.WordWars = {});
 
   // Pick weights for every sabotage the AI is willing to buy. Mystery is left
-  // out on purpose: its outcomes can bankrupt or backfire on the buyer.
+  // out on purpose: its outcomes are a gamble the AI should not spend 40 on.
   // The range is deliberately narrow so no single sabotage dominates.
   const SABOTAGE_WEIGHTS = {
     heist: 3,

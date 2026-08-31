@@ -25,6 +25,7 @@
         index: slot.index,
         letter: slot.letter,
         passed: Boolean(slot.passed),
+        wild: Boolean(slot.wild),
       };
     });
   }
@@ -67,6 +68,7 @@
     const draft = ["", "", "", "", ""];
     if (frozenSlots) {
       frozenSlots.forEach(function (slot) {
+        if (slot.wild) return;
         draft[slot.index] = slot.letter;
       });
     }
@@ -76,7 +78,7 @@
   function isFrozenIndex(index, frozenSlots) {
     if (!frozenSlots || !frozenSlots.length) return false;
     return frozenSlots.some(function (slot) {
-      return slot.index === index;
+      return slot.index === index && !slot.wild;
     });
   }
 
@@ -175,6 +177,15 @@
       tooLate: Boolean(state.tooLate),
       freezeCount: state.freezeCount == null ? 1 : state.freezeCount,
       blockBackspace: Boolean(state.blockBackspace),
+      scoreMultiplier: state.scoreMultiplier == null ? 1 : state.scoreMultiplier,
+      deadLetter: state.deadLetter || null,
+      goldenLetter: state.goldenLetter || null,
+      palindromeRequired: Boolean(state.palindromeRequired),
+      charity: Boolean(state.charity),
+      copyCatFromPlayerId: state.copyCatFromPlayerId || null,
+      oracleAvailable: Boolean(state.oracleAvailable),
+      oracleUsed: Boolean(state.oracleUsed),
+      oracleWord: state.oracleWord || null,
       seeded: Boolean(state.seeded),
       turnsPerPlayer: roundsFor(state),
       playLog: clonePlayLog(state.playLog),
@@ -244,7 +255,9 @@
   function frozenSlotAt(frozenSlots, index) {
     if (!frozenSlots || !frozenSlots.length) return null;
     for (let i = 0; i < frozenSlots.length; i += 1) {
-      if (frozenSlots[i].index === index) return frozenSlots[i];
+      if (frozenSlots[i].index === index && !frozenSlots[i].wild) {
+        return frozenSlots[i];
+      }
     }
     return null;
   }
@@ -359,89 +372,16 @@
     });
   }
 
-  function rotateScores(players) {
-    const scores = players.map(function (player) {
-      return player.score;
-    });
-    const n = scores.length;
-    if (n < 2) return;
-    const rotated = scores.map(function (_, index) {
-      return scores[(index + 1) % n];
-    });
-    players.forEach(function (player, index) {
-      player.score = rotated[index];
-    });
-  }
-
   function resolveMysteryEffect(effect, ctx) {
     const outcome = effect.resolvedType;
-    const players = ctx.players;
-    const targetIndex = ctx.currentPlayerIndex;
-    const buyerIndex = findPlayerIndex(players, effect.fromPlayerId);
-    const buyer = buyerIndex >= 0 ? players[buyerIndex] : null;
-    const target = players[targetIndex];
-
-    if (outcome === "mystery_nothing") {
-      ctx.applied.push({
-        type: "mystery_nothing",
-        fromPlayerId: effect.fromPlayerId,
-      });
-      return;
+    const resolved = {
+      type: outcome,
+      fromPlayerId: effect.fromPlayerId,
+    };
+    if (outcome === "mystery_dead_letter" || outcome === "mystery_golden_letter") {
+      resolved.letter = WW.pickAlphabetLetter(ctx.random);
     }
-
-    if (outcome === "mystery_bankrupt_buyer" && buyer && target) {
-      const amount = buyer.score;
-      buyer.score = 0;
-      target.score += amount;
-      pushScoreGain(ctx.scoreGains, target.id, amount);
-      ctx.applied.push({
-        type: "mystery_bankrupt_buyer",
-        fromPlayerId: effect.fromPlayerId,
-        amount: amount,
-      });
-      return;
-    }
-
-    if (outcome === "mystery_jackpot" && buyer && target) {
-      const amount = target.score;
-      target.score = 0;
-      buyer.score += amount;
-      pushScoreGain(ctx.scoreGains, buyer.id, amount);
-      ctx.applied.push({
-        type: "mystery_jackpot",
-        fromPlayerId: effect.fromPlayerId,
-        amount: amount,
-      });
-      return;
-    }
-
-    if (outcome === "mystery_swap_all") {
-      rotateScores(players);
-      ctx.applied.push({
-        type: "mystery_swap_all",
-        fromPlayerId: effect.fromPlayerId,
-      });
-      return;
-    }
-
-    if (outcome === "mystery_refund" && buyer) {
-      buyer.score += WW.MYSTERY_REFUND_AMOUNT;
-      pushScoreGain(ctx.scoreGains, buyer.id, WW.MYSTERY_REFUND_AMOUNT);
-      ctx.applied.push({
-        type: "mystery_refund",
-        fromPlayerId: effect.fromPlayerId,
-      });
-      return;
-    }
-
-    applyPendingEffect(
-      {
-        type: outcome,
-        fromPlayerId: effect.fromPlayerId,
-        giftPoints: WW.MYSTERY_GIFT_POINTS,
-      },
-      ctx
-    );
+    applyPendingEffect(resolved, ctx);
   }
 
   function buySabotage(state, action, rng) {
@@ -628,6 +568,15 @@
     next.tooLate = false;
     next.freezeCount = 1;
     next.blockBackspace = false;
+    next.scoreMultiplier = 1;
+    next.deadLetter = null;
+    next.goldenLetter = null;
+    next.palindromeRequired = false;
+    next.charity = false;
+    next.copyCatFromPlayerId = null;
+    next.oracleAvailable = false;
+    next.oracleUsed = false;
+    next.oracleWord = null;
   }
 
   function applyPendingEffect(effect, ctx) {
@@ -646,12 +595,6 @@
 
     if (type === "time_tax") {
       ctx.turnMs = Math.max(WW.MIN_TURN_MS, ctx.turnMs - WW.TIME_TAX_MS);
-      ctx.applied.push(effect);
-    } else if (type === "mystery_time") {
-      ctx.turnMs = Math.min(
-        WW.MAX_TURN_MS,
-        ctx.turnMs + WW.MYSTERY_TIME_BONUS_MS
-      );
       ctx.applied.push(effect);
     } else if (type === "clock_block") {
       ctx.hideTimer = true;
@@ -677,9 +620,6 @@
     } else if (type === "obsession") {
       ctx.requiredLetter = effect.letter || null;
       ctx.applied.push(effect);
-    } else if (type === "mystery_gift") {
-      ctx.giftPoints = (ctx.giftPoints || 0) + (effect.giftPoints || WW.MYSTERY_GIFT_POINTS);
-      ctx.applied.push(effect);
     } else if (type === "hostile_takeover") {
       // Turn-scoped: consumed on the target's next SUBMIT (handled in SUBMIT logic).
       ctx.applied.push(effect);
@@ -688,13 +628,42 @@
       ctx.applied.push(effect);
     } else if (type === "sui_you_later") {
       ctx.applied.push(effect);
+    } else if (type === "mystery_nothing") {
+      ctx.applied.push(effect);
+    } else if (type === "mystery_double") {
+      ctx.scoreMultiplier = WW.MYSTERY_SCORE_DOUBLE;
+      ctx.applied.push(effect);
+    } else if (type === "mystery_half") {
+      ctx.scoreMultiplier = WW.MYSTERY_SCORE_HALF;
+      ctx.applied.push(effect);
+    } else if (type === "mystery_oracle") {
+      ctx.oracleAvailable = true;
+      ctx.applied.push(effect);
+    } else if (type === "mystery_dead_letter") {
+      ctx.deadLetter = effect.letter || null;
+      ctx.applied.push(effect);
+    } else if (type === "mystery_wildcard") {
+      ctx.wildFrozen = true;
+      ctx.applied.push(effect);
+    } else if (type === "mystery_golden_letter") {
+      ctx.goldenLetter = effect.letter || null;
+      ctx.applied.push(effect);
+    } else if (type === "mystery_charity") {
+      ctx.charity = true;
+      ctx.applied.push(effect);
+    } else if (type === "mystery_palindrome") {
+      ctx.palindromeRequired = true;
+      ctx.applied.push(effect);
+    } else if (type === "mystery_copycat") {
+      ctx.copyCatFromPlayerId = effect.fromPlayerId || null;
+      ctx.applied.push(effect);
     } else {
       ctx.kept.push(effect);
     }
   }
 
   function scoreWithPenalties(word, timeRemainingMs, turnDurationMs, state) {
-    let points = WW.wordValue(word, WW.getLetterPoints(state));
+    let points = WW.wordValue(word, WW.turnLetterPoints(state));
     const elapsed = turnDurationMs - timeRemainingMs;
     if (state.tooQuick && elapsed < WW.TOO_QUICK_MS) {
       points = Math.round(points * WW.SCORE_PENALTY);
@@ -702,7 +671,33 @@
     if (state.tooLate && elapsed > WW.TOO_LATE_MS) {
       points = Math.round(points * WW.SCORE_PENALTY);
     }
+    const multiplier =
+      state.scoreMultiplier == null ? 1 : Number(state.scoreMultiplier);
+    if (multiplier && multiplier !== 1) {
+      points = Math.round(points * multiplier);
+    }
     return points;
+  }
+
+  function charityRecipients(players, currentIndex) {
+    let min = Infinity;
+    players.forEach(function (player) {
+      if (player.score < min) min = player.score;
+    });
+    const idxs = [];
+    players.forEach(function (player, index) {
+      if (player.score === min && index !== currentIndex) idxs.push(index);
+    });
+    return idxs;
+  }
+
+  function blankWildFrozenSlots(slots) {
+    if (!slots || !slots.length) return;
+    slots.forEach(function (slot) {
+      slot.wild = true;
+      slot.letter = "";
+      slot.passed = false;
+    });
   }
 
   function hostileMissPenalty(players, playerIndex, effects) {
@@ -773,6 +768,15 @@
       tooQuick: Boolean(state.tooQuick),
       tooLate: Boolean(state.tooLate),
       freezeCount: state.freezeCount == null ? 1 : state.freezeCount,
+      scoreMultiplier: state.scoreMultiplier == null ? 1 : state.scoreMultiplier,
+      deadLetter: state.deadLetter || null,
+      goldenLetter: state.goldenLetter || null,
+      palindromeRequired: Boolean(state.palindromeRequired),
+      charity: Boolean(state.charity),
+      copyCatFromPlayerId: state.copyCatFromPlayerId || null,
+      oracleAvailable: Boolean(state.oracleAvailable),
+      oracleUsed: Boolean(state.oracleUsed),
+      oracleWord: state.oracleWord || null,
       seeded: Boolean(state.seeded),
       turnsPerPlayer: roundsFor(state),
       playLog: clonePlayLog(state.playLog),
@@ -810,6 +814,15 @@
       tooQuick: false,
       tooLate: false,
       freezeCount: 1,
+      scoreMultiplier: 1,
+      deadLetter: null,
+      goldenLetter: null,
+      palindromeRequired: false,
+      charity: false,
+      copyCatFromPlayerId: null,
+      oracleAvailable: false,
+      oracleUsed: false,
+      oracleWord: null,
       seeded: Boolean(state.seeded),
       turnsPerPlayer: roundsFor(state),
       playLog: clonePlayLog(state.playLog),
@@ -914,6 +927,15 @@
       tooQuick: false,
       tooLate: false,
       freezeCount: 1,
+      scoreMultiplier: 1,
+      deadLetter: null,
+      goldenLetter: null,
+      palindromeRequired: false,
+      charity: false,
+      copyCatFromPlayerId: null,
+      oracleAvailable: false,
+      oracleUsed: false,
+      oracleWord: null,
       seeded: false,
       turnsPerPlayer: WW.clampRounds(action.turnsPerPlayer),
       playLog: [],
@@ -950,6 +972,15 @@
       tooQuick: false,
       tooLate: false,
       freezeCount: 1,
+      scoreMultiplier: 1,
+      deadLetter: null,
+      goldenLetter: null,
+      palindromeRequired: false,
+      charity: false,
+      copyCatFromPlayerId: null,
+      oracleAvailable: false,
+      oracleUsed: false,
+      oracleWord: null,
       seeded: false,
       turnsPerPlayer: WW.TURNS_PER_PLAYER,
       playLog: [],
@@ -966,8 +997,9 @@
     if (!WW.hasWord(w)) return false;
     const used = state.usedWords || state.usedWords || [];
     if (used.indexOf(w) !== -1) return false;
-    const frozen = state.frozenSlots || state.frozenSlots || [];
+    const frozen = state.frozenSlots || [];
     for (let i = 0; i < frozen.length; i += 1) {
+      if (frozen[i].wild) continue;
       if (w.charAt(frozen[i].index) !== String(frozen[i].letter).toLowerCase()) {
         return false;
       }
@@ -976,6 +1008,9 @@
       if (w.indexOf(String(state.requiredLetter).toLowerCase()) === -1) {
         return false;
       }
+    }
+    if (state.palindromeRequired && !WW.isPalindrome(w)) {
+      return false;
     }
     return true;
   };
@@ -988,18 +1023,48 @@
     return "";
   };
 
-  WW.pickAiWord = function pickAiWord(state, rng) {
-    const random = rng || Math.random;
+  WW.matchingWords = function matchingWords(state) {
     const pool = WW.WORDS || [];
     const matches = [];
     for (let i = 0; i < pool.length; i += 1) {
       const word = String(pool[i]).toLowerCase();
       if (WW.wordFitsBoard(word, state)) matches.push(word);
     }
+    return matches;
+  };
+
+  WW.bestWordForBoard = function bestWordForBoard(state) {
+    const matches = WW.matchingWords(state);
     if (!matches.length) return null;
     let points = WW.LETTER_POINTS;
     try {
-      if (typeof WW.getLetterPoints === "function") {
+      if (typeof WW.turnLetterPoints === "function") {
+        points = WW.turnLetterPoints(state);
+      } else if (typeof WW.getLetterPoints === "function") {
+        points = WW.getLetterPoints(state);
+      }
+    } catch (err) {
+      points = WW.LETTER_POINTS;
+    }
+    matches.sort(function (a, b) {
+      const diff = WW.wordValue(b, points) - WW.wordValue(a, points);
+      if (diff) return diff;
+      if (a < b) return -1;
+      if (a > b) return 1;
+      return 0;
+    });
+    return matches[0];
+  };
+
+  WW.pickAiWord = function pickAiWord(state, rng) {
+    const random = rng || Math.random;
+    const matches = WW.matchingWords(state);
+    if (!matches.length) return null;
+    let points = WW.LETTER_POINTS;
+    try {
+      if (typeof WW.turnLetterPoints === "function") {
+        points = WW.turnLetterPoints(state);
+      } else if (typeof WW.getLetterPoints === "function") {
         points = WW.getLetterPoints(state);
       }
     } catch (err) {
@@ -1070,22 +1135,27 @@
         tooQuick: false,
         tooLate: false,
         freezeCount: 1,
-        giftPoints: 0,
         blockBackspace: false,
+        scoreMultiplier: 1,
+        deadLetter: null,
+        goldenLetter: null,
+        palindromeRequired: false,
+        charity: false,
+        copyCatFromPlayerId: null,
+        oracleAvailable: false,
+        wildFrozen: false,
         applied: [],
         kept: [],
         scoreGains: [],
         players: next.players,
         currentPlayerIndex: next.currentPlayerIndex,
+        random: random,
       };
 
       player.pendingEffects.forEach(function (effect) {
         applyPendingEffect(effect, ctx);
       });
       player.pendingEffects = ctx.kept;
-
-      // Apply any mystery gift points at turn start (the rival learns on their turn).
-      if (ctx.giftPoints) player.score += ctx.giftPoints;
 
       next.activeEffects = ctx.applied;
       next.hideTimer = ctx.hideTimer;
@@ -1096,6 +1166,15 @@
       next.tooLate = ctx.tooLate;
       next.freezeCount = ctx.freezeCount;
       next.blockBackspace = ctx.blockBackspace;
+      next.scoreMultiplier = ctx.scoreMultiplier == null ? 1 : ctx.scoreMultiplier;
+      next.deadLetter = ctx.deadLetter || null;
+      next.goldenLetter = ctx.goldenLetter || null;
+      next.palindromeRequired = Boolean(ctx.palindromeRequired);
+      next.charity = Boolean(ctx.charity);
+      next.copyCatFromPlayerId = ctx.copyCatFromPlayerId || null;
+      next.oracleAvailable = Boolean(ctx.oracleAvailable);
+      next.oracleUsed = false;
+      next.oracleWord = null;
 
       next.lastShopMessage = null;
       next.lastShopPurchase = null;
@@ -1112,6 +1191,11 @@
           next.freezeCount,
           random
         );
+        if (ctx.wildFrozen) blankWildFrozenSlots(next.frozenSlots);
+        if (next.oracleAvailable) {
+          next.oracleWord = WW.bestWordForBoard(next);
+          next.oracleAvailable = Boolean(next.oracleWord);
+        }
         next.phase = "spinning";
         next.turnEndsAt = null;
         next.draft = wordTiles(next.lastWord);
@@ -1120,9 +1204,23 @@
 
       next.phase = "playing";
       next.frozenSlots = [];
+      if (next.oracleAvailable) {
+        next.oracleWord = WW.bestWordForBoard(next);
+        next.oracleAvailable = Boolean(next.oracleWord);
+      }
       next.turnEndsAt = now + ctx.turnMs;
       next.draft = emptyDraft(null);
       return next;
+    }
+
+    if (type === "USE_ORACLE") {
+      if (state.phase !== "playing") return state;
+      if (!state.oracleAvailable || state.oracleUsed || !state.oracleWord) {
+        return state;
+      }
+      const hinted = cloneState(state);
+      hinted.oracleUsed = true;
+      return hinted;
     }
 
     if (type === "SPIN_DONE") {
@@ -1211,7 +1309,8 @@
       if (state.frozenSlots && state.frozenSlots.length) {
         for (let i = 0; i < state.frozenSlots.length; i += 1) {
           const slot = state.frozenSlots[i];
-          if (word.charAt(slot.index) !== slot.letter.toLowerCase()) {
+          if (slot.wild) continue;
+          if (word.charAt(slot.index) !== String(slot.letter).toLowerCase()) {
             next.invalidReason = "wrong_letter";
             next.shakeNonce += 1;
             return next;
@@ -1225,6 +1324,11 @@
           next.shakeNonce += 1;
           return next;
         }
+      }
+      if (state.palindromeRequired && !WW.isPalindrome(word)) {
+        next.invalidReason = "not_palindrome";
+        next.shakeNonce += 1;
+        return next;
       }
       if (state.usedWords.indexOf(word) !== -1) {
         next.invalidReason = "reused";
@@ -1268,10 +1372,34 @@
 
       const current = next.players[state.currentPlayerIndex];
       const gains = [];
+      let awarded = points;
+      if (state.charity) {
+        const recipients = charityRecipients(
+          next.players,
+          state.currentPlayerIndex
+        );
+        if (recipients.length) {
+          const share = Math.floor(points / 2);
+          awarded = points - share;
+          const each = Math.floor(share / recipients.length);
+          let remainder = share - each * recipients.length;
+          recipients.forEach(function (index) {
+            let got = each;
+            if (remainder > 0) {
+              got += 1;
+              remainder -= 1;
+            }
+            if (got > 0) {
+              next.players[index].score += got;
+              pushScoreGain(gains, next.players[index].id, got);
+            }
+          });
+        }
+      }
       const hostile = (state.activeEffects || []).find(function (effect) {
         return effect.type === "hostile_takeover";
       });
-      const pointsToTarget = hostile ? 0 : points;
+      const pointsToTarget = hostile ? 0 : awarded;
       current.score += pointsToTarget;
       current.turnsTaken += 1;
 
@@ -1280,10 +1408,20 @@
           return player.id === hostile.fromPlayerId;
         });
         if (attackerIndex >= 0) {
-          next.players[attackerIndex].score += points;
+          next.players[attackerIndex].score += awarded;
           if (next.players[attackerIndex].id !== current.id) {
-            pushScoreGain(gains, next.players[attackerIndex].id, points);
+            pushScoreGain(gains, next.players[attackerIndex].id, awarded);
           }
+        }
+      }
+
+      if (state.copyCatFromPlayerId) {
+        const copyIndex = state.players.findIndex(function (player) {
+          return player.id === state.copyCatFromPlayerId;
+        });
+        if (copyIndex >= 0 && next.players[copyIndex].id !== current.id) {
+          next.players[copyIndex].score += points;
+          pushScoreGain(gains, next.players[copyIndex].id, points);
         }
       }
 

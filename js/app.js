@@ -78,6 +78,9 @@
   const handoffEffectListEl = document.getElementById("handoff-effect-list");
   const playEffectsEl = document.getElementById("play-effects");
   const playEffectListEl = document.getElementById("play-effect-list");
+  const oracleEl = document.getElementById("oracle-hint");
+  const oracleBtn = document.getElementById("oracle-btn");
+  const oracleWordEl = document.getElementById("oracle-word");
   const rulesEl = document.getElementById("rules");
   const pplEl = document.getElementById("ppl");
   const pplBtn = document.getElementById("ppl-btn");
@@ -154,6 +157,11 @@
   function letterPointsMap() {
     if (typeof WW.getLetterPoints === "function") return WW.getLetterPoints(state);
     return WW.LETTER_POINTS || {};
+  }
+
+  function turnPointsMap() {
+    if (typeof WW.turnLetterPoints === "function") return WW.turnLetterPoints(state);
+    return letterPointsMap();
   }
 
   function pplScoreLabel(score) {
@@ -1428,9 +1436,9 @@
 
     const tiles = result.tiles || wordTiles(result.word);
     const letterValues = tiles.map(function (letter) {
-      return WW.letterValue(letter, letterPointsMap());
+      return WW.letterValue(letter, turnPointsMap());
     });
-    const wordValue = WW.wordValue(result.word, letterPointsMap());
+    const wordValue = WW.wordValue(result.word, turnPointsMap());
     const finalPoints = result.points;
     const stepDelays = [240, 210, 190, 170, 150];
 
@@ -1523,7 +1531,15 @@
   function frozenIndices() {
     const indices = {};
     (state.frozenSlots || []).forEach(function (slot) {
-      indices[slot.index] = true;
+      if (!slot.wild) indices[slot.index] = true;
+    });
+    return indices;
+  }
+
+  function wildIndices() {
+    const indices = {};
+    (state.frozenSlots || []).forEach(function (slot) {
+      if (slot.wild) indices[slot.index] = true;
     });
     return indices;
   }
@@ -1560,6 +1576,7 @@
       }
     }, 5200);
     const frozen = frozenIndices();
+    const wild = wildIndices();
     const slots = state.frozenSlots || [];
     const target =
       slots.length > 0 ? slots[slots.length - 1].index : 0;
@@ -1578,7 +1595,9 @@
 
     if (reducedMotion()) {
       tiles.forEach(function (tile, index) {
-        if (frozen[index]) {
+        if (wild[index]) {
+          tile.classList.add("is-wild", "is-vanishing");
+        } else if (frozen[index]) {
           tile.classList.add("is-locked", "is-frozen");
         } else {
           tile.classList.add("is-vanishing");
@@ -1618,7 +1637,9 @@
       if (state.phase !== "spinning") return;
       tiles.forEach(function (tile, tileIndex) {
         tile.classList.remove("is-scanning", "is-settling");
-        if (frozen[tileIndex]) {
+        if (wild[tileIndex]) {
+          tile.classList.add("is-wild", "is-vanishing");
+        } else if (frozen[tileIndex]) {
           tile.classList.add("is-locked", "is-frozen");
         } else {
           tile.classList.add("is-vanishing");
@@ -1680,13 +1701,9 @@
 
   function sabotageName(type, effect) {
     if (type === "mystery_resolved") return "Mystery";
-    if (type === "mystery_nothing") return "Nothing Happened";
-    if (type === "mystery_bankrupt_buyer") return "Bankrupt";
-    if (type === "mystery_swap_all") return "Score Shuffle";
-    if (type === "mystery_jackpot") return "Jackpot";
-    if (type === "mystery_refund") return "Refund";
-    if (type === "mystery_gift") return "Lucky Bonus";
-    if (type === "mystery_time") return "Extra Time";
+    if (WW.mysteryOutcomeLabel && WW.isMysteryOutcome && WW.isMysteryOutcome(type)) {
+      return WW.mysteryOutcomeLabel(type);
+    }
     if (type === "obsession" && effect && effect.letter) {
       return "Obsession (" + effect.letter + ")";
     }
@@ -1699,15 +1716,9 @@
     if (type === "mystery_resolved") {
       return "A mystery prank is coming — it will be revealed when your rival's turn begins.";
     }
-    if (WW.mysteryOutcomeDescription && WW.mysteryOutcomeDescription(type)) {
-      const mysteryDesc = WW.mysteryOutcomeDescription(type);
+    if (WW.mysteryOutcomeDescription && WW.mysteryOutcomeDescription(type, effect)) {
+      const mysteryDesc = WW.mysteryOutcomeDescription(type, effect);
       if (mysteryDesc) return mysteryDesc;
-    }
-    if (type === "mystery_gift") {
-      return "This rival gained bonus points from the mystery roll.";
-    }
-    if (type === "mystery_time") {
-      return "Mystery adds 5 seconds to this turn.";
     }
     if (type === "obsession" && effect && effect.letter) {
       return "Must include the letter " + effect.letter + ".";
@@ -1896,6 +1907,7 @@
         ? state.lastSubmitResult.tiles
         : state.draft) || ["", "", "", "", ""];
     const frozen = frozenIndices();
+    const wild = wildIndices();
     const showFrozen = state.phase === "playing" && state.frozenSlots && state.frozenSlots.length;
     const showLetterScores =
       state.phase === "revealing" &&
@@ -1919,7 +1931,11 @@
     boardEl.innerHTML = letters
       .map(function (letter, index) {
         const isFrozenTile = showFrozen && frozen[index];
-        const tileClass = "tile" + (isFrozenTile ? " is-frozen" : "");
+        const isWildTile = showFrozen && wild[index];
+        const tileClass =
+          "tile" +
+          (isFrozenTile ? " is-frozen" : "") +
+          (isWildTile ? " is-wild" : "");
         const glyph =
           '<span class="tile-letter">' +
           escapeHtml(boardGlyph(letter, index, letters)) +
@@ -1968,12 +1984,40 @@
     );
   }
 
+  function paintOracle() {
+    if (!oracleEl) return;
+    const mine = !isOnline() || isMyTurn();
+    const show =
+      mine &&
+      (state.phase === "playing" || state.phase === "spinning") &&
+      Boolean(state.oracleAvailable);
+    oracleEl.hidden = !show;
+    if (!show) return;
+    if (state.oracleUsed && state.oracleWord) {
+      if (oracleBtn) oracleBtn.hidden = true;
+      if (oracleWordEl) {
+        oracleWordEl.hidden = false;
+        oracleWordEl.textContent = String(state.oracleWord).toUpperCase();
+      }
+      return;
+    }
+    if (oracleBtn) {
+      oracleBtn.hidden = false;
+      oracleBtn.disabled = state.phase !== "playing";
+    }
+    if (oracleWordEl) {
+      oracleWordEl.hidden = true;
+      oracleWordEl.textContent = "";
+    }
+  }
+
   function flashCopy() {
     const reason = state.invalidReason;
     if (reason === "incomplete") return "Need five letters";
     if (reason === "not_a_word") return "Not in the dictionary";
     if (reason === "reused") return "Already played";
     if (reason === "wrong_letter") return "Keep the frozen letters";
+    if (reason === "not_palindrome") return "Must be a palindrome";
     if (reason === "missing_letter") {
       return "Must include " + (state.requiredLetter || "that letter");
     }
@@ -1995,16 +2039,37 @@
           ? "Picking " + count + " letters…"
           : "Picking a letter…";
     } else if (state.frozenSlots && state.frozenSlots.length) {
-      if (state.frozenSlots.length === 1) {
+      const wildOnly = state.frozenSlots.every(function (slot) {
+        return slot.wild;
+      });
+      if (wildOnly) {
+        copy =
+          state.frozenSlots.length === 1
+            ? "Blank freeze — any letter in slot " +
+              (state.frozenSlots[0].index + 1)
+            : "Blank freeze — any letters in those slots";
+      } else if (state.frozenSlots.length === 1) {
         const slot = state.frozenSlots[0];
         copy = "Keep " + slot.letter + " in slot " + (slot.index + 1);
       } else {
         copy = "Keep " + state.frozenSlots.length + " frozen letters";
       }
+    } else if (state.palindromeRequired) {
+      copy = "Play a palindrome";
     } else if (state.requiredLetter) {
       copy = "Must include " + state.requiredLetter;
     } else if (state.reverseType) {
       copy = "Type backwards — right to left";
+    }
+    if (
+      state.palindromeRequired &&
+      (state.phase === "playing" || state.phase === "spinning") &&
+      copy !== "Play a palindrome"
+    ) {
+      copy =
+        copy === "Any five-letter word"
+          ? "Play a palindrome"
+          : copy + " · palindrome";
     }
     if (
       hasHostileTakeover() &&
@@ -2046,6 +2111,7 @@
     turnKickerEl.textContent = turnKickerCopy();
     paintTimer();
     paintEffects(playEffectsEl, playEffectListEl);
+    paintOracle();
     const scoringReveal =
       state.phase === "revealing" &&
       state.lastSubmitResult &&
@@ -2072,6 +2138,16 @@
         state.requiredLetter &&
         letter === state.requiredLetter.toUpperCase();
       key.classList.toggle("is-required", Boolean(required));
+      const golden =
+        state.goldenLetter && letter === String(state.goldenLetter).toUpperCase();
+      const dead =
+        state.deadLetter && letter === String(state.deadLetter).toUpperCase();
+      key.classList.toggle("is-golden", Boolean(golden));
+      key.classList.toggle("is-dead", Boolean(dead));
+      const ptsEl = key.querySelector(".key-pts");
+      if (ptsEl && /^[A-Z]$/.test(letter)) {
+        ptsEl.textContent = String(WW.letterValue(letter, turnPointsMap()));
+      }
       if (letter === "BACKSPACE") {
         const blocked = Boolean(state.blockBackspace);
         key.classList.toggle("is-disabled", blocked);
@@ -3401,6 +3477,12 @@
     readyBtn.blur();
     dispatch({ type: "READY", nowMs: Date.now() });
   });
+
+  if (oracleBtn) {
+    oracleBtn.addEventListener("click", function () {
+      dispatch({ type: "USE_ORACLE" });
+    });
+  }
 
   shopToggleBtn.addEventListener("click", function () {
     setShopOpen(!shopOpen);

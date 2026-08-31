@@ -22,6 +22,7 @@
     BACKSPACE: true,
     SUBMIT: true,
     BUY_SABOTAGE: true,
+    USE_ORACLE: true,
   };
 
   function clone(value) {
@@ -66,6 +67,13 @@
     const current = copy.players && copy.players[copy.currentPlayerIndex];
     const mine = Boolean(current && current.id === viewerPlayerId);
     if (!mine) copy.tunnelVision = false;
+    if (!mine) {
+      copy.oracleWord = null;
+      copy.oracleAvailable = false;
+      copy.oracleUsed = false;
+    } else if (!copy.oracleUsed) {
+      copy.oracleWord = null;
+    }
     return copy;
   };
 
