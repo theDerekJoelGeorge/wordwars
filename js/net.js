@@ -64,9 +64,27 @@
     let code = "";
     let closed = true;
     let retries = 0;
+    let reconnects = 0;
+    let openMsg = null;
+    let reconnectTimer = 0;
+    let pingTimer = 0;
 
     function emitError(err) {
       if (hooks.onError) hooks.onError(err);
+    }
+
+    function clearReconnect() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = 0;
+      }
+    }
+
+    function clearPing() {
+      if (pingTimer) {
+        clearInterval(pingTimer);
+        pingTimer = 0;
+      }
     }
 
     function send(msg) {
@@ -75,9 +93,29 @@
       return true;
     }
 
-    function bindSocket(nextCode, openMsg) {
+    function scheduleReconnect() {
+      if (closed || !code || !openMsg) return;
+      clearReconnect();
+      const wait = Math.min(400 * Math.pow(2, reconnects), 6000);
+      reconnects += 1;
+      reconnectTimer = setTimeout(function () {
+        reconnectTimer = 0;
+        if (closed || !openMsg) return;
+        const token = readToken(code) || openMsg.seatToken;
+        bindSocket(code, {
+          type: openMsg.type,
+          name: openMsg.name,
+          color: openMsg.color,
+          seatToken: token,
+        });
+      }, wait);
+    }
+
+    function bindSocket(nextCode, nextOpen) {
       code = WW.normalizeRoomCode(nextCode);
+      openMsg = nextOpen;
       closed = false;
+      clearPing();
       if (socket) {
         try {
           socket.onclose = null;
@@ -89,7 +127,12 @@
       socket = new WebSocket(socketUrl(code));
       socket.onopen = function () {
         retries = 0;
+        reconnects = 0;
         send(openMsg);
+        clearPing();
+        pingTimer = setInterval(function () {
+          send({ type: "PING" });
+        }, 20000);
       };
       socket.onmessage = function (event) {
         let msg = event.data;
@@ -109,13 +152,19 @@
         }
         if (msg.type === "VIEW" && msg.view && msg.view.you && msg.view.you.seatToken) {
           writeToken(code, msg.view.you.seatToken);
+          if (openMsg) openMsg.seatToken = msg.view.you.seatToken;
         }
         if (hooks.onMessage) hooks.onMessage(msg);
       };
       socket.onclose = function () {
-        if (hooks.onClose) hooks.onClose();
+        clearPing();
+        socket = null;
+        if (closed) return;
+        if (hooks.onDisconnect) hooks.onDisconnect();
+        scheduleReconnect();
       };
       socket.onerror = function () {
+        if (closed) return;
         emitError({
           code: "socket",
           message: "Could not reach the room. Is partykit running?",
@@ -146,6 +195,17 @@
       });
     }
 
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden || closed) return;
+        if (socket && socket.readyState === 1) {
+          send({ type: "PING" });
+          return;
+        }
+        scheduleReconnect();
+      });
+    }
+
     return {
       host: connectHost,
       join: connectJoin,
@@ -155,8 +215,12 @@
       },
       disconnect: function () {
         closed = true;
+        openMsg = null;
+        clearReconnect();
+        clearPing();
         if (socket) {
           try {
+            socket.onclose = null;
             socket.close();
           } catch (err) {
             /* ignore */

@@ -138,7 +138,7 @@
   const net = WW.createNet({
     onMessage: onNetMessage,
     onError: onNetError,
-    onClose: onNetClose,
+    onDisconnect: onNetDisconnect,
   });
   const AI_YEARS = {
     beginner: "2023",
@@ -568,6 +568,7 @@
   }
 
   function leaveOnline() {
+    net.send({ type: "LEAVE" });
     net.disconnect();
     onlineView = null;
     flow = "mode";
@@ -610,15 +611,11 @@
     if (hint && err && err.message) hint.textContent = err.message;
   }
 
-  function onNetClose() {
+  function onNetDisconnect() {
     if (flow === "kicked") return;
     if (!onlineView) return;
-    if (onlineView.screen === "game") {
-      onlineView = Object.assign({}, onlineView, { reconnecting: true });
-      render();
-      return;
-    }
-    leaveOnline();
+    onlineView = Object.assign({}, onlineView, { reconnecting: true });
+    render();
   }
 
   function applyOnlineView(view) {
@@ -827,7 +824,9 @@
       return seat.isAi || seat.isHost || seat.ready;
     });
     if (hintEl) {
-      if (!view || !view.you) {
+      if (view && view.reconnecting) {
+        hintEl.textContent = "Reconnecting to the room…";
+      } else if (!view || !view.you) {
         hintEl.textContent = "Opening room…";
       } else if (!host && !youReady) {
         hintEl.textContent = "Tap Ready when you are set.";

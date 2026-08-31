@@ -13,6 +13,7 @@
   WW.ROOM_CODE_LENGTH = 5;
   WW.ROOM_DISCONNECT_MS = 15000;
   WW.ROOM_EMPTY_MS = 30000;
+  WW.ROOM_HOLD_MS = 15 * 60 * 1000;
   WW.ROOM_SPIN_MS = 3400;
   WW.ROOM_REVEAL_MS = 2400;
   WW.CLIENT_GAME_ACTIONS = {
@@ -457,21 +458,31 @@
       send(connId, { type: "ERROR", code: code, message: message });
     }
 
+    function wipeTable() {
+      table.closed = true;
+      table.game = null;
+      table.seats = [];
+      table.hostSeatId = null;
+      stopAi();
+      clearTimer("spin");
+      clearTimer("reveal");
+      clearTimer("timeout");
+      clearTimer("empty");
+      Object.keys(timers.disconnect).forEach(clearDisconnect);
+    }
+
     function scheduleEmpty() {
       clearTimer("empty");
       if (connectedHumans().length) return;
+      if (!humanSeats().length) {
+        wipeTable();
+        return;
+      }
       timers.empty = delay(function () {
         timers.empty = 0;
         if (connectedHumans().length) return;
-        table.closed = true;
-        table.game = null;
-        table.seats = [];
-        table.hostSeatId = null;
-        stopAi();
-        clearTimer("spin");
-        clearTimer("reveal");
-        clearTimer("timeout");
-      }, WW.ROOM_EMPTY_MS);
+        wipeTable();
+      }, WW.ROOM_HOLD_MS);
     }
 
     function startGame() {
@@ -522,6 +533,8 @@
         table.seats.forEach(function (seat) {
           if (seat.id !== existing.id) seat.isHost = false;
         });
+        clearDisconnect(existing.id);
+        scheduleEmpty();
         broadcast();
         return;
       }
@@ -566,6 +579,7 @@
         claimed.connectionId = connId;
         claimed.connected = true;
         clearDisconnect(claimed.id);
+        scheduleEmpty();
         if (
           table.game &&
           currentSeat() &&
@@ -603,6 +617,7 @@
 
     function handleMessage(connId, msg) {
       if (!msg || !msg.type) return;
+      if (msg.type === "PING") return;
       if (msg.type === "HOST") {
         handleHost(connId, msg);
         return;
@@ -614,6 +629,16 @@
       const you = seatByConn(connId);
       if (!you) {
         error(connId, "who", "Join the room first.");
+        return;
+      }
+      if (msg.type === "LEAVE") {
+        table.seats = table.seats.filter(function (seat) {
+          return seat.id !== you.id;
+        });
+        clearDisconnect(you.id);
+        if (you.isHost) promoteHost();
+        broadcast();
+        scheduleEmpty();
         return;
       }
       if (msg.type === "SET_READY") {
@@ -731,22 +756,12 @@
     function handleClose(connId) {
       const seat = seatByConn(connId);
       if (!seat) {
-        scheduleEmpty();
+        if (humanSeats().length) scheduleEmpty();
         return;
       }
       seat.connected = false;
       seat.connectionId = null;
       if (!table.game) {
-        if (seat.isHost) {
-          table.seats = table.seats.filter(function (row) {
-            return row.id !== seat.id;
-          });
-          promoteHost();
-        } else {
-          table.seats = table.seats.filter(function (row) {
-            return row.id !== seat.id;
-          });
-        }
         broadcast();
         scheduleEmpty();
         return;

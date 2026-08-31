@@ -287,3 +287,40 @@ test("lobby colors stay unique", () => {
   assert.notEqual(after.you.color, "#fbab20");
   assert.notEqual(after.you.color, after.seats[0].color);
 });
+
+test("host disconnect in lobby keeps the room for joiners", () => {
+  const { table, sent } = makeTable();
+  table.handleMessage("c1", {
+    type: "HOST",
+    name: "Ada",
+    color: "#fbab20",
+    seatToken: "aaaa",
+  });
+  table.handleClose("c1");
+  const afterDrop = table.inspect();
+  assert.equal(afterDrop.closed, false);
+  assert.equal(afterDrop.seats.length, 1);
+  assert.equal(afterDrop.seats[0].connected, false);
+
+  table.handleMessage("c2", {
+    type: "JOIN",
+    name: "Bea",
+    color: "#d7263d",
+    seatToken: "bbbb",
+  });
+  assert.equal(table.inspect().seats.length, 2);
+  table.handleMessage("c1", {
+    type: "HOST",
+    name: "Ada",
+    color: "#fbab20",
+    seatToken: "aaaa",
+  });
+  const host = lastView(sent, "c1");
+  assert.equal(host.you.isHost, true);
+  assert.equal(host.seats[0].connected, true);
+
+  table.handleMessage("c1", { type: "LEAVE" });
+  table.handleMessage("c2", { type: "LEAVE" });
+  assert.equal(table.inspect().closed, true);
+  assert.equal(table.inspect().seats.length, 0);
+});
