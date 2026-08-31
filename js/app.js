@@ -2251,13 +2251,13 @@
       const rowEl = document.createElement("div");
       rowEl.className = "key-row";
       if (rowIndex === 2) {
-        const enter = document.createElement("button");
-        enter.type = "button";
-        enter.className = "key key-wide";
-        enter.dataset.key = "ENTER";
-        enter.textContent = "enter";
-        enter.setAttribute("aria-label", "Submit word");
-        rowEl.appendChild(enter);
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "key key-wide";
+        del.dataset.key = "BACKSPACE";
+        del.textContent = "del";
+        del.setAttribute("aria-label", "Delete last letter");
+        rowEl.appendChild(del);
       }
       row.split("").forEach(function (letter) {
         const key = document.createElement("button");
@@ -2278,13 +2278,13 @@
         rowEl.appendChild(key);
       });
       if (rowIndex === 2) {
-        const del = document.createElement("button");
-        del.type = "button";
-        del.className = "key key-wide";
-        del.dataset.key = "BACKSPACE";
-        del.textContent = "del";
-        del.setAttribute("aria-label", "Delete last letter");
-        rowEl.appendChild(del);
+        const enter = document.createElement("button");
+        enter.type = "button";
+        enter.className = "key key-wide";
+        enter.dataset.key = "ENTER";
+        enter.textContent = "enter";
+        enter.setAttribute("aria-label", "Submit word");
+        rowEl.appendChild(enter);
       }
       keyboardEl.appendChild(rowEl);
     });

@@ -1588,11 +1588,13 @@ body.ai-turn .keyboard {
 
 .key {
   position: relative;
+  flex: 1 1 0;
   border: 2px solid var(--ink);
   background: var(--tile);
-  min-width: 24px;
+  min-width: 26px;
+  max-width: 42px;
   height: 48px;
-  padding: 2px 7.6px 10px;
+  padding: 2px 9px 10px;
   font-family: var(--keys);
   font-weight: 700;
   font-size: 16.8px;
@@ -1618,7 +1620,9 @@ body.ai-turn .keyboard {
 }
 
 .key-wide {
-  min-width: 70.4px;
+  flex: 1.7 1 0;
+  min-width: 64px;
+  max-width: 88px;
   font-size: 13.6px;
   letter-spacing: 0.08em;
 }
@@ -2705,12 +2709,15 @@ body.ai-turn .keyboard {
 @media (max-width: 420px) {
   .key {
     min-width: 24px;
+    max-width: 38px;
     height: 44px;
     font-size: 14px;
+    padding: 2px 7px 8px;
   }
 
   .key-wide {
-    min-width: 3.6rem;
+    min-width: 3.4rem;
+    max-width: 4.6rem;
     font-size: 12px;
   }
 
@@ -2718,10 +2725,6 @@ body.ai-turn .keyboard {
     gap: 0.7rem;
     flex-wrap: wrap;
     justify-content: flex-end;
-  }
-
-  .key {
-    padding-bottom: 8px;
   }
 
   .key-pts {
