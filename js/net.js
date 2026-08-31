@@ -9,7 +9,8 @@
       if (window.location.port === "1999") return window.location.host;
       return "127.0.0.1:1999";
     }
-    return "wordsus.partykit.dev";
+    if (host.indexOf("partykit.dev") !== -1) return window.location.host;
+    return "wordsus.thederekjoelgeorge.partykit.dev";
   };
 
   function socketUrl(code) {
