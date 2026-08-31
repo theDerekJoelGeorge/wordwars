@@ -85,6 +85,7 @@
     let timer = 0;
     let gen = 0;
     let job = "";
+    const clock = typeof globalThis !== "undefined" ? globalThis : root;
 
     function state() {
       return hooks.getState();
@@ -100,7 +101,7 @@
     }
 
     function stop() {
-      window.clearTimeout(timer);
+      clock.clearTimeout(timer);
       timer = 0;
       gen += 1;
       job = "";
@@ -109,8 +110,8 @@
 
     function wait(ms, fn) {
       const token = gen;
-      window.clearTimeout(timer);
-      timer = window.setTimeout(function () {
+      clock.clearTimeout(timer);
+      timer = clock.setTimeout(function () {
         timer = 0;
         if (token !== gen) return;
         fn();
@@ -131,18 +132,8 @@
         .replace(/[^A-Z]/g, "")
         .slice(0, WW.WORD_LENGTH)
         .split("");
-      const frozen = frozenMap(game);
-      const order = [];
-      if (game.reverseType) {
-        for (let i = letters.length - 1; i >= 0; i -= 1) {
-          if (!frozen[i]) order.push(letters[i]);
-        }
-      } else {
-        for (let i = 0; i < letters.length; i += 1) {
-          if (!frozen[i]) order.push(letters[i]);
-        }
-      }
-      return order;
+      if (game.reverseType) return letters.slice().reverse();
+      return letters;
     }
 
     function buySabotage() {

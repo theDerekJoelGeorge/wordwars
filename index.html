@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=site-credit-3" />
+    <link rel="stylesheet" href="css/styles.css?v=spin-ease" />
     <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
     <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
   </head>
@@ -110,19 +110,228 @@
         <div id="scoreboard" class="scoreboard" role="list" aria-label="Scores"></div>
 
         <section
-          id="screen-setup"
+          id="screen-mode"
           class="screen is-active"
+          aria-labelledby="mode-title"
+        >
+          <div class="mode-setup">
+            <p class="kicker" id="mode-kicker">GAME SETUP</p>
+            <h2 class="headline setup-title" id="mode-title">CHOOSE MODE</h2>
+            <p class="setup-hint">
+              Play locally on this device, or online with friends.
+            </p>
+            <div class="mode-pick">
+              <button type="button" class="mode-card" id="mode-local-btn">
+                <span class="mode-card-icon" aria-hidden="true">
+                  <img src="assets/mode-local.svg" alt="" width="36" height="36" />
+                </span>
+                <span class="mode-card-label">Local</span>
+              </button>
+              <button type="button" class="mode-card" id="mode-online-btn">
+                <span class="mode-card-icon" aria-hidden="true">
+                  <img src="assets/mode-online.svg" alt="" width="36" height="36" />
+                </span>
+                <span class="mode-card-label">Online</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="screen-online"
+          class="screen"
+          hidden
+          aria-labelledby="online-title"
+        >
+          <div class="mode-setup">
+            <button type="button" class="setup-back" id="online-back-btn">
+              <span class="setup-back-icon" aria-hidden="true">
+                <img src="assets/back-arrow.svg" alt="" width="16" height="16" />
+              </span>
+              Back
+            </button>
+            <p class="kicker">GAME SETUP</p>
+            <h2 class="headline setup-title" id="online-title">ONLINE GAME</h2>
+            <p class="setup-hint">Host a game or join a room with a code.</p>
+            <div class="mode-pick">
+              <button type="button" class="mode-card" id="online-host-btn">
+                <span class="mode-card-icon" aria-hidden="true">
+                  <img src="assets/mode-host.svg" alt="" width="36" height="36" />
+                </span>
+                <span class="mode-card-label">Host a room</span>
+              </button>
+              <button type="button" class="mode-card" id="online-join-btn">
+                <span class="mode-card-icon" aria-hidden="true">
+                  <img src="assets/mode-join.svg" alt="" width="36" height="36" />
+                </span>
+                <span class="mode-card-label">Enter a code</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="screen-join"
+          class="screen"
+          hidden
+          aria-labelledby="join-title"
+        >
+          <div class="mode-setup">
+            <button type="button" class="setup-back" id="join-back-btn">
+              <span class="setup-back-icon" aria-hidden="true">
+                <img src="assets/back-arrow.svg" alt="" width="16" height="16" />
+              </span>
+              Back
+            </button>
+            <p class="kicker">GAME SETUP</p>
+            <h2 class="headline setup-title" id="join-title">ONLINE GAME</h2>
+            <p class="setup-hint" id="join-hint">
+              Type the host’s five-letter room code.
+            </p>
+            <div class="board-wrap join-board-wrap">
+              <div class="board" id="join-board" aria-hidden="true"></div>
+            </div>
+            <p class="flash" id="join-flash" role="status" aria-atomic="true"></p>
+          </div>
+          <div
+            class="keyboard"
+            id="join-keyboard"
+            role="group"
+            aria-label="Letter keyboard"
+          ></div>
+        </section>
+
+        <section
+          id="screen-kicked"
+          class="screen"
+          hidden
+          aria-labelledby="kicked-title"
+        >
+          <p class="kicker">ONLINE</p>
+          <h2 class="headline setup-title" id="kicked-title">
+            THE HOST KICKED YOU OUT
+          </h2>
+          <p class="setup-hint" id="kicked-hint">
+            You can leave this lobby, or type a different room code.
+          </p>
+          <div class="mode-actions">
+            <button type="button" class="btn btn-wide" id="kicked-leave-btn">
+              Leave lobby
+            </button>
+            <button type="button" class="btn btn-amber btn-wide" id="kicked-join-btn">
+              Enter code
+              <span class="icon icon-arrow" aria-hidden="true">
+                <img src="assets/arrow.svg" alt="" width="16" height="22" />
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section
+          id="screen-lobby"
+          class="screen"
+          hidden
+          aria-labelledby="lobby-kicker"
+        >
+          <p class="kicker" id="lobby-kicker">ROOM CODE</p>
+          <div class="lobby-code-row">
+            <div
+              id="lobby-code"
+              class="board board-preview lobby-code"
+              role="img"
+              aria-label="Room code"
+            ></div>
+            <button type="button" class="lobby-copy" id="lobby-copy-btn">
+              Copy game link
+            </button>
+          </div>
+          <p class="setup-hint" id="lobby-hint">
+            Copy the game link, or share the word.
+          </p>
+          <div id="lobby-roster" class="setup-roster"></div>
+          <div class="setup-rounds" id="lobby-rounds">
+            <div class="setup-rounds-copy">
+              <p class="setup-rounds-label" id="lobby-rounds-label">Rounds</p>
+              <p class="setup-rounds-hint">
+                Number of turns played by each player
+              </p>
+            </div>
+            <div
+              class="setup-rounds-stepper"
+              role="group"
+              aria-labelledby="lobby-rounds-label"
+            >
+              <button type="button" id="lobby-rounds-minus" aria-label="Fewer rounds">
+                −
+              </button>
+              <span id="lobby-rounds-value" aria-live="polite">5</span>
+              <button type="button" id="lobby-rounds-plus" aria-label="More rounds">
+                +
+              </button>
+            </div>
+          </div>
+          <div class="setup-actions">
+            <button type="button" class="add-player" id="lobby-ai-btn">
+              + ADD AI
+            </button>
+            <button type="button" class="btn btn-amber btn-ready" id="lobby-ready-btn">
+              Ready
+            </button>
+            <button type="button" class="lobby-leave" id="lobby-leave-btn">
+              Leave room
+            </button>
+            <button type="button" class="btn btn-amber btn-begin" id="lobby-start-btn">
+              BEGIN
+              <span class="icon icon-arrow" aria-hidden="true">
+                <img src="assets/arrow.svg" alt="" width="16" height="22" />
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section
+          id="screen-wait"
+          class="screen"
+          hidden
+          aria-labelledby="wait-title"
+        >
+          <div class="handoff">
+            <p class="kicker" id="wait-kicker">Waiting</p>
+            <p class="sudden" id="wait-reconnect" hidden>Reconnecting…</p>
+            <h2 class="headline" id="wait-title" tabindex="-1">Waiting for a rival</h2>
+            <div id="wait-word" class="last-word" hidden>
+              <p class="kicker">Last word</p>
+              <div
+                id="wait-board"
+                class="board board-preview"
+                role="img"
+              ></div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="screen-setup"
+          class="screen"
+          hidden
           aria-labelledby="setup-title"
         >
+          <div class="mode-setup">
+          <button type="button" class="setup-back" id="setup-back-btn">
+            <span class="setup-back-icon" aria-hidden="true">
+              <img src="assets/back-arrow.svg" alt="" width="16" height="16" />
+            </span>
+            Back
+          </button>
           <p class="kicker" id="setup-kicker">GAME SETUP</p>
-          <h2 class="headline setup-title" id="setup-title">ADD PLAYERS</h2>
+          <h2 class="headline setup-title" id="setup-title">LOCAL GAME</h2>
           <p class="setup-hint">Playing alone? Tap Add AI on a rival.</p>
           <div id="name-fields" class="setup-roster"></div>
           <div class="setup-rounds">
             <div class="setup-rounds-copy">
               <p class="setup-rounds-label" id="rounds-label">Rounds</p>
               <p class="setup-rounds-hint" id="rounds-hint">
-                Scoring turns each, after the first word
+                Number of turns played by each player
               </p>
             </div>
             <div
@@ -151,6 +360,7 @@
               </span>
             </button>
           </div>
+          </div>
         </section>
 
         <section
@@ -166,7 +376,8 @@
             <div id="handoff-effects" class="effects" hidden>
               <p class="kicker effects-kicker">
                 <span id="handoff-effects-label">Active sabotages</span>
-                <span class="effects-hint">(hover to read about sabotage)</span>
+                <span class="effects-hint effects-hint-hover">(hover to read about sabotage)</span>
+                <span class="effects-hint effects-hint-tap">(tap to read about sabotage)</span>
               </p>
               <div
                 class="effect-list"
@@ -240,7 +451,8 @@
           <div id="play-effects" class="effects" hidden>
             <p class="kicker effects-kicker">
               <span id="play-effects-label">Active sabotages</span>
-              <span class="effects-hint">(hover to read about sabotage)</span>
+              <span class="effects-hint effects-hint-hover">(hover to read about sabotage)</span>
+              <span class="effects-hint effects-hint-tap">(tap to read about sabotage)</span>
             </p>
             <div
               class="effect-list"
@@ -399,7 +611,7 @@
             <li>After you are ready, one or more letters from the last word may freeze in place.</li>
             <li>Between turns, open the shop to spend points on sabotages — freeze extra letters, hide the clock, force backwards typing, and more.</li>
             <li>The first word scores nothing and starts the chain. Then each player takes the chosen number of scoring turns. A tie goes to sudden death.</li>
-            <li>Playing alone? Tap Add AI on a rival on the setup screen.</li>
+            <li>Playing alone? Tap Add AI on a rival on the setup screen. Playing apart? Host a five-letter room and have friends type the word.</li>
           </ol>
           <div class="rules-panel-bottom">
             <button
@@ -518,9 +730,11 @@
     <script src="js/scoring.js?v=timer-fix"></script>
     <script src="js/dictionary.js"></script>
     <script src="js/shop.js?v=hostile-miss"></script>
-    <script src="js/engine.js?v=score-gain"></script>
-    <script src="js/ai.js?v=ai-sabotage-mix"></script>
+    <script src="js/engine.js?v=freeze-overlap"></script>
+    <script src="js/ai.js?v=freeze-overlap"></script>
+    <script src="js/room.js?v=spin-steady"></script>
+    <script src="js/net.js?v=online-rooms"></script>
     <script src="js/demo.js?v=hostile-miss"></script>
-    <script src="js/app.js?v=site-credit"></script>
+    <script src="js/app.js?v=spin-steady"></script>
   </body>
 </html>

@@ -340,4 +340,6 @@
       targetIndex: targetIndex,
     };
   };
+
+  if (typeof module !== "undefined") module.exports = WW;
 })(typeof globalThis !== "undefined" ? globalThis : this);

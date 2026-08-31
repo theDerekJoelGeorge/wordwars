@@ -17,12 +17,6 @@ function rngSeq(values) {
   };
 }
 
-function isFrozenSlot(state, index) {
-  return (state.frozenSlots || []).some(function (slot) {
-    return slot.index === index;
-  });
-}
-
 function beginPlay(state, nowMs, rng) {
   let next = WW.reduce(state, { type: "READY", nowMs: nowMs }, rng);
   if (next.phase === "spinning") {
@@ -34,7 +28,6 @@ function beginPlay(state, nowMs, rng) {
 function typeWord(state, word, rng) {
   let next = state;
   for (let i = 0; i < word.length; i += 1) {
-    if (isFrozenSlot(next, i)) continue;
     next = WW.reduce(next, { type: "TYPE", letter: word[i] }, rng);
   }
   return WW.reduce(next, { type: "SUBMIT" }, rng);
@@ -87,11 +80,11 @@ test("freeze is chosen after the next player is ready", () => {
   assert.equal(state.frozenSlots.length, 1);
   assert.equal(state.frozenSlots[0].index, 2);
   assert.equal(state.frozenSlots[0].letter, "A");
-  assert.equal(state.turnEndsAt, 2_000 + WW.TURN_MS);
+  assert.equal(state.turnEndsAt, null);
   assert.deepEqual(state.draft, ["C", "R", "A", "N", "E"]);
-  state = WW.reduce(state, { type: "SPIN_DONE", nowMs: 2_000 }, rng);
+  state = WW.reduce(state, { type: "SPIN_DONE", nowMs: 3_600 }, rng);
   assert.equal(state.phase, "playing");
-  assert.equal(state.turnEndsAt, 2_000 + WW.TURN_MS);
+  assert.equal(state.turnEndsAt, 3_600 + WW.TURN_MS);
   assert.deepEqual(state.draft, ["", "", "A", "", ""]);
 });
 
@@ -108,10 +101,29 @@ test("next word must include the frozen letter in that slot", () => {
   state = WW.reduce(state, { type: "BACKSPACE" }, rng);
   state = WW.reduce(state, { type: "BACKSPACE" }, rng);
   state = WW.reduce(state, { type: "BACKSPACE" }, rng);
+  state = WW.reduce(state, { type: "BACKSPACE" }, rng);
   state = typeWord(state, "slate", rng);
   assert.equal(state.phase, "revealing");
   assert.equal(state.lastWord, "slate");
   assert.equal(state.invalidReason, null);
+});
+
+test("typing the frozen letter overlaps that slot", () => {
+  const rng = rngSeq([0.4]);
+  let state = startTwo(rng);
+  state = typeWord(state, "crane", rng);
+  state = WW.reduce(state, { type: "REVEAL_DONE" }, rng);
+  state = beginPlay(state, 2_000, rng);
+  assert.equal(state.frozenSlots[0].index, 2);
+  assert.equal(state.frozenSlots[0].letter, "A");
+  state = WW.reduce(state, { type: "TYPE", letter: "C" }, rng);
+  state = WW.reduce(state, { type: "TYPE", letter: "R" }, rng);
+  state = WW.reduce(state, { type: "TYPE", letter: "A" }, rng);
+  assert.deepEqual(state.draft, ["C", "R", "A", "", ""]);
+  assert.equal(state.frozenSlots[0].passed, true);
+  state = WW.reduce(state, { type: "BACKSPACE" }, rng);
+  assert.equal(state.frozenSlots[0].passed, false);
+  assert.deepEqual(state.draft, ["C", "R", "A", "", ""]);
 });
 
 test("reused words are rejected and the timer keeps running", () => {
@@ -447,11 +459,11 @@ test("BUY_SABOTAGE time_tax shortens the target's next turn", () => {
   state = WW.reduce(state, { type: "READY", nowMs: 2_000 }, rng);
   assert.equal(state.phase, "spinning");
   assert.equal(state.turnDurationMs, WW.TURN_MS - WW.TIME_TAX_MS);
-  assert.equal(state.turnEndsAt, 2_000 + (WW.TURN_MS - WW.TIME_TAX_MS));
-  state = WW.reduce(state, { type: "SPIN_DONE", nowMs: 2_000 }, rng);
+  assert.equal(state.turnEndsAt, null);
+  state = WW.reduce(state, { type: "SPIN_DONE", nowMs: 3_600 }, rng);
   assert.equal(state.phase, "playing");
   assert.equal(state.timeRemainingMs, WW.TURN_MS - WW.TIME_TAX_MS);
-  assert.equal(state.turnEndsAt, 2_000 + (WW.TURN_MS - WW.TIME_TAX_MS));
+  assert.equal(state.turnEndsAt, 3_600 + (WW.TURN_MS - WW.TIME_TAX_MS));
   assert.equal(state.players[1].pendingEffects.length, 0);
 });
 

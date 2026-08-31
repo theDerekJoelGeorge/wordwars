@@ -21,7 +21,11 @@
   function cloneFrozenSlots(slots) {
     if (!slots || !slots.length) return [];
     return slots.map(function (slot) {
-      return { index: slot.index, letter: slot.letter };
+      return {
+        index: slot.index,
+        letter: slot.letter,
+        passed: Boolean(slot.passed),
+      };
     });
   }
 
@@ -237,6 +241,53 @@
     });
   }
 
+  function frozenSlotAt(frozenSlots, index) {
+    if (!frozenSlots || !frozenSlots.length) return null;
+    for (let i = 0; i < frozenSlots.length; i += 1) {
+      if (frozenSlots[i].index === index) return frozenSlots[i];
+    }
+    return null;
+  }
+
+  function nextTypeTarget(draft, frozenSlots, reverseType) {
+    const start = reverseType ? draft.length - 1 : 0;
+    const step = reverseType ? -1 : 1;
+    for (let i = start; reverseType ? i >= 0 : i < draft.length; i += step) {
+      const frozen = frozenSlotAt(frozenSlots, i);
+      if (frozen) {
+        if (!frozen.passed) return { index: i, frozen: frozen };
+        continue;
+      }
+      if (!draft[i]) return { index: i, frozen: null };
+    }
+    return null;
+  }
+
+  function lastTypedTarget(draft, frozenSlots, reverseType) {
+    const start = reverseType ? 0 : draft.length - 1;
+    const step = reverseType ? 1 : -1;
+    for (let i = start; reverseType ? i < draft.length : i >= 0; i += step) {
+      const frozen = frozenSlotAt(frozenSlots, i);
+      if (frozen) {
+        if (frozen.passed) return { index: i, frozen: frozen };
+        continue;
+      }
+      if (draft[i]) return { index: i, frozen: null };
+    }
+    return null;
+  }
+
+  function passFrozenBefore(frozenSlots, filledIndex, reverseType) {
+    if (!frozenSlots) return;
+    frozenSlots.forEach(function (slot) {
+      if (reverseType) {
+        if (slot.index > filledIndex) slot.passed = true;
+      } else if (slot.index < filledIndex) {
+        slot.passed = true;
+      }
+    });
+  }
+
   function nextEmptySlot(draft, frozenSlots, reverseType) {
     if (reverseType) {
       for (let i = draft.length - 1; i >= 0; i -= 1) {
@@ -247,21 +298,6 @@
       for (let i = 0; i < draft.length; i += 1) {
         if (isFrozenIndex(i, frozenSlots)) continue;
         if (!draft[i]) return i;
-      }
-    }
-    return -1;
-  }
-
-  function lastTypedSlot(draft, frozenSlots, reverseType) {
-    if (reverseType) {
-      for (let i = 0; i < draft.length; i += 1) {
-        if (isFrozenIndex(i, frozenSlots)) continue;
-        if (draft[i]) return i;
-      }
-    } else {
-      for (let i = draft.length - 1; i >= 0; i -= 1) {
-        if (isFrozenIndex(i, frozenSlots)) continue;
-        if (draft[i]) return i;
       }
     }
     return -1;
@@ -1077,7 +1113,7 @@
           random
         );
         next.phase = "spinning";
-        next.turnEndsAt = now + ctx.turnMs;
+        next.turnEndsAt = null;
         next.draft = wordTiles(next.lastWord);
         return next;
       }
@@ -1098,12 +1134,8 @@
       next.phase = "playing";
       next.draft = emptyDraft(state.frozenSlots);
       next.invalidReason = null;
-      if (state.turnEndsAt == null) {
-        next.timeRemainingMs = turnMs;
-        next.turnEndsAt = now + turnMs;
-      } else {
-        next.timeRemainingMs = Math.max(0, state.turnEndsAt - now);
-      }
+      next.timeRemainingMs = turnMs;
+      next.turnEndsAt = now + turnMs;
       return next;
     }
 
@@ -1113,14 +1145,33 @@
         .toUpperCase()
         .replace(/[^A-Z]/g, "");
       if (letter.length !== 1) return state;
-      const slot = nextEmptySlot(
+      const target = nextTypeTarget(
         state.draft,
         state.frozenSlots,
         state.reverseType
       );
-      if (slot < 0) return state;
+      if (!target) return state;
       const next = cloneState(state);
-      next.draft[slot] = letter;
+      if (target.frozen) {
+        const slot = frozenSlotAt(next.frozenSlots, target.index);
+        const frozenLetter = String(target.frozen.letter || "").toUpperCase();
+        if (letter === frozenLetter) {
+          if (slot) slot.passed = true;
+          next.invalidReason = null;
+          return next;
+        }
+        const empty = nextEmptySlot(
+          next.draft,
+          next.frozenSlots,
+          next.reverseType
+        );
+        if (empty < 0) return state;
+        passFrozenBefore(next.frozenSlots, empty, next.reverseType);
+        next.draft[empty] = letter;
+        next.invalidReason = null;
+        return next;
+      }
+      next.draft[target.index] = letter;
       next.invalidReason = null;
       return next;
     }
@@ -1128,14 +1179,20 @@
     if (type === "BACKSPACE") {
       if (state.phase !== "playing") return state;
       if (state.blockBackspace) return state;
-      const slot = lastTypedSlot(
+      const target = lastTypedTarget(
         state.draft,
         state.frozenSlots,
         state.reverseType
       );
-      if (slot < 0) return state;
+      if (!target) return state;
       const next = cloneState(state);
-      next.draft[slot] = "";
+      if (target.frozen) {
+        const slot = frozenSlotAt(next.frozenSlots, target.index);
+        if (slot) slot.passed = false;
+        next.invalidReason = null;
+        return next;
+      }
+      next.draft[target.index] = "";
       next.invalidReason = null;
       return next;
     }

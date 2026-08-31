@@ -15,7 +15,7 @@
     "#3d5a80",
     "#9b5de5",
   ];
-  const PLAYER_PLACEHOLDERS = [
+  const PLAYER_PLACEHOLDERS = WW.PLAYER_PLACEHOLDERS || [
     "SPELLING BEE",
     "DYSLEXIC DINOSUAR",
     "GRAMMER POLICE",
@@ -33,6 +33,12 @@
   };
 
   const screens = {
+    mode: document.getElementById("screen-mode"),
+    online: document.getElementById("screen-online"),
+    join: document.getElementById("screen-join"),
+    kicked: document.getElementById("screen-kicked"),
+    lobby: document.getElementById("screen-lobby"),
+    wait: document.getElementById("screen-wait"),
     setup: document.getElementById("screen-setup"),
     handoff: document.getElementById("screen-handoff"),
     play: document.getElementById("screen-play"),
@@ -115,6 +121,7 @@
   let lastTickAt = 0;
   let shopOpen = false;
   let shareFlash = 0;
+  let lobbyCopyFlash = 0;
   let dialogTrigger = null;
   let shopWasOpen = false;
   let prevPhase = "";
@@ -124,6 +131,15 @@
   let landingTypeTimer = 0;
   let onLanding = Boolean(landingEl && !landingEl.hidden);
   let aiTargetRow = null;
+  let flow = "mode";
+  let onlineView = null;
+  let joinDraft = ["", "", "", "", ""];
+  let joinShake = 0;
+  const net = WW.createNet({
+    onMessage: onNetMessage,
+    onError: onNetError,
+    onClose: onNetClose,
+  });
   const AI_YEARS = {
     beginner: "2023",
     intermediate: "2025",
@@ -441,25 +457,562 @@
     schedule("wait", 500);
   }
 
+  function pendingRoomCode() {
+    const fromQuery = WW.normalizeRoomCode(params.get("room") || "");
+    if (fromQuery.length === (WW.ROOM_CODE_LENGTH || 5)) return fromQuery;
+    const fromHash = WW.normalizeRoomCode(
+      String(window.location.hash || "").replace(/^#/, "")
+    );
+    if (fromHash.length === (WW.ROOM_CODE_LENGTH || 5)) return fromHash;
+    return "";
+  }
+
+  function roomInviteUrl(code) {
+    const word = WW.normalizeRoomCode(code || "");
+    const path = window.location.origin + window.location.pathname;
+    if (!word) return path;
+    return path + "?room=" + encodeURIComponent(word);
+  }
+
+  function syncRoomUrl(code) {
+    if (!window.history || !window.history.replaceState) return;
+    const url = new URL(window.location.href);
+    const word = WW.normalizeRoomCode(code || "");
+    if (word) url.searchParams.set("room", word);
+    else url.searchParams.delete("room");
+    url.hash = "";
+    const next = url.pathname + url.search;
+    const now = window.location.pathname + window.location.search;
+    if (next !== now) {
+      window.history.replaceState({}, "", url);
+    }
+  }
+
   function enterGameFromLanding() {
     if (!landingEl || !onLanding) return;
     onLanding = false;
     stopLandingTypewriter();
     landingEl.hidden = true;
     if (appEl) appEl.hidden = false;
+    const invite = pendingRoomCode();
+    if (invite) {
+      joinDraft = invite.split("");
+      flow = "join";
+      const flash = document.getElementById("join-flash");
+      if (flash) {
+        flash.textContent = "Joining…";
+        flash.className = "flash";
+      }
+      net.join(invite, myOnlineName(), myOnlineColor());
+      render();
+      syncBackgroundInert();
+      return;
+    }
+    flow = "mode";
     render();
     syncBackgroundInert();
-    const begin = document.getElementById("start-btn");
-    if (begin) begin.focus();
+    const localBtn = document.getElementById("mode-local-btn");
+    if (localBtn) localBtn.focus();
+  }
+
+  function isOnline() {
+    return Boolean(onlineView);
+  }
+
+  function isMyTurn() {
+    if (!isOnline()) return !isAiSeat();
+    const current = WW.currentPlayer(state);
+    return Boolean(
+      current &&
+        onlineView.you &&
+        current.id === onlineView.you.playerId &&
+        !current.isAi
+    );
+  }
+
+  function myOnlineName() {
+    if (onlineView && onlineView.you && onlineView.you.name) {
+      return onlineView.you.name;
+    }
+    return playerPlaceholder(0);
+  }
+
+  function myOnlineColor() {
+    if (onlineView && onlineView.you && onlineView.you.color) {
+      return onlineView.you.color;
+    }
+    return PLAYER_COLORS[0];
+  }
+
+  function showKicked() {
+    onlineView = null;
+    flow = "kicked";
+    state = WW.createGame();
+    joinDraft = ["", "", "", "", ""];
+    shopOpen = false;
+    stopAi();
+    syncRoomUrl("");
+    net.disconnect();
+    render();
+  }
+
+  function goToJoin() {
+    flow = "join";
+    joinDraft = ["", "", "", "", ""];
+    const flash = document.getElementById("join-flash");
+    if (flash) {
+      flash.textContent = "";
+      flash.className = "flash";
+    }
+    render();
+  }
+
+  function leaveOnline() {
+    net.disconnect();
+    onlineView = null;
+    flow = "mode";
+    state = WW.createGame();
+    joinDraft = ["", "", "", "", ""];
+    shopOpen = false;
+    stopAi();
+    syncRoomUrl("");
+    render();
+  }
+
+  function onNetMessage(msg) {
+    if (!msg) return;
+    if (msg.type === "VIEW" && msg.view) {
+      applyOnlineView(msg.view);
+    }
+  }
+
+  function onNetError(err) {
+    if (err && err.code === "kicked") {
+      showKicked();
+      return;
+    }
+    if (flow === "join") {
+      const flash = document.getElementById("join-flash");
+      if (flash) {
+        flash.textContent = (err && err.message) || "Could not join.";
+        flash.className = "flash is-bad";
+      }
+      joinShake += 1;
+      paintJoinBoard();
+      return;
+    }
+    if (flow === "online-pick" || !onlineView) {
+      flow = "online-pick";
+      render();
+      return;
+    }
+    const hint = document.getElementById("lobby-hint");
+    if (hint && err && err.message) hint.textContent = err.message;
+  }
+
+  function onNetClose() {
+    if (flow === "kicked") return;
+    if (!onlineView) return;
+    if (onlineView.screen === "game") {
+      onlineView = Object.assign({}, onlineView, { reconnecting: true });
+      render();
+      return;
+    }
+    leaveOnline();
+  }
+
+  function applyOnlineView(view) {
+    if (view && view.screen === "lobby" && onlineView && onlineView.you && !view.you) {
+      showKicked();
+      return;
+    }
+    const prev = state;
+    onlineView = view;
+    flow = "net";
+    if (view.code) syncRoomUrl(view.code);
+    if (view.game) {
+      state = view.game;
+    } else {
+      state = WW.createGame();
+    }
+    if (prev.phase === "handoff" && state.phase !== "handoff") shopOpen = false;
+    if (prev.phase !== "handoff" && state.phase === "handoff") shopOpen = false;
+    try {
+      render();
+    } catch (err) {
+      console.error("online render failed", err);
+    }
+    if (state.phase === "revealing" && prev.phase !== "revealing") {
+      armRevealGuard();
+      try {
+        startScoreReveal();
+      } catch (err) {
+        console.error("Score reveal failed", err);
+      }
+    }
+    if (state.phase === "spinning" && prev.phase !== "spinning") {
+      try {
+        startSpin();
+      } catch (err) {
+        console.error("Spin failed", err);
+      }
+    }
+    if (prev.phase === "revealing" && state.phase !== "revealing") {
+      clearRevealGuard();
+    }
+  }
+
+  function startHosting() {
+    flow = "net";
+    net.host(myOnlineName(), myOnlineColor());
+    render();
+  }
+
+  function submitJoinCode() {
+    const code = joinDraft.join("");
+    if (code.length !== WW.WORD_LENGTH) {
+      const flash = document.getElementById("join-flash");
+      if (flash) {
+        flash.textContent = "Need five letters.";
+        flash.className = "flash is-bad";
+      }
+      joinShake += 1;
+      paintJoinBoard();
+      return;
+    }
+    const flash = document.getElementById("join-flash");
+    if (flash) {
+      flash.textContent = "Joining…";
+      flash.className = "flash";
+    }
+    net.join(code, myOnlineName(), myOnlineColor());
+  }
+
+  function paintJoinBoard() {
+    const board = document.getElementById("join-board");
+    if (!board) return;
+    board.classList.toggle("is-shaking", false);
+    if (joinShake) {
+      void board.offsetWidth;
+      board.classList.add("is-shaking");
+    }
+    board.innerHTML = joinDraft
+      .map(function (letter) {
+        return (
+          '<div class="tile-stack"><div class="tile"><span class="tile-letter">' +
+          escapeHtml(letter) +
+          "</span></div></div>"
+        );
+      })
+      .join("");
+  }
+
+  function handleJoinKey(key) {
+    if (key === "ENTER") {
+      submitJoinCode();
+      return;
+    }
+    if (key === "BACKSPACE") {
+      for (let i = joinDraft.length - 1; i >= 0; i -= 1) {
+        if (joinDraft[i]) {
+          joinDraft[i] = "";
+          break;
+        }
+      }
+      paintJoinBoard();
+      return;
+    }
+    if (!/^[A-Z]$/.test(key)) return;
+    for (let i = 0; i < joinDraft.length; i += 1) {
+      if (!joinDraft[i]) {
+        joinDraft[i] = key;
+        break;
+      }
+    }
+    paintJoinBoard();
+    if (joinDraft.every(function (cell) {
+      return cell;
+    })) {
+      submitJoinCode();
+    }
+  }
+
+  function fillKeyboard(el, withScores) {
+    if (!el) return;
+    el.innerHTML = "";
+    KEY_ROWS.forEach(function (row, rowIndex) {
+      const rowEl = document.createElement("div");
+      rowEl.className = "key-row";
+      if (rowIndex === 2) {
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "key key-wide";
+        del.dataset.key = "BACKSPACE";
+        del.textContent = "del";
+        del.setAttribute("aria-label", "Delete last letter");
+        rowEl.appendChild(del);
+      }
+      row.split("").forEach(function (letter) {
+        const key = document.createElement("button");
+        key.type = "button";
+        key.className = "key";
+        key.dataset.key = letter;
+        if (withScores) {
+          const value = WW.letterValue(letter, letterPointsMap());
+          key.setAttribute(
+            "aria-label",
+            letter + ", " + value + (value === 1 ? " point" : " points")
+          );
+          key.innerHTML =
+            '<span class="key-letter">' +
+            letter +
+            '</span><span class="key-pts" aria-hidden="true">' +
+            value +
+            "</span>";
+        } else {
+          key.setAttribute("aria-label", letter);
+          key.innerHTML = '<span class="key-letter">' + letter + "</span>";
+        }
+        rowEl.appendChild(key);
+      });
+      if (rowIndex === 2) {
+        const enter = document.createElement("button");
+        enter.type = "button";
+        enter.className = "key key-wide";
+        enter.dataset.key = "ENTER";
+        enter.textContent = "enter";
+        enter.setAttribute("aria-label", "Submit word");
+        rowEl.appendChild(enter);
+      }
+      el.appendChild(rowEl);
+    });
+  }
+
+  function buildJoinKeyboard() {
+    const el = document.getElementById("join-keyboard");
+    if (!el) return;
+    if (el.dataset.kind === "join") return;
+    fillKeyboard(el, false);
+    el.dataset.kind = "join";
+  }
+
+  function paintLobby() {
+    const view = onlineView;
+    const codeEl = document.getElementById("lobby-code");
+    const hintEl = document.getElementById("lobby-hint");
+    const rosterEl = document.getElementById("lobby-roster");
+    const startBtn = document.getElementById("lobby-start-btn");
+    const readyBtn = document.getElementById("lobby-ready-btn");
+    const aiBtn = document.getElementById("lobby-ai-btn");
+    const roundsWrap = document.getElementById("lobby-rounds");
+    const roundsValue = document.getElementById("lobby-rounds-value");
+    const code = view && view.code ? view.code : net.code();
+    if (codeEl) {
+      const letters = String(code || "     ")
+        .toUpperCase()
+        .padEnd(5, " ")
+        .slice(0, 5)
+        .split("");
+      codeEl.setAttribute("aria-label", "Room code " + (code || ""));
+      codeEl.innerHTML = letters
+        .map(function (letter) {
+          return '<div class="tile" aria-hidden="true">' + escapeHtml(letter.trim()) + "</div>";
+        })
+        .join("");
+    }
+    const host = Boolean(view && view.you && view.you.isHost);
+    const youReady = Boolean(view && view.you && (view.you.isHost || view.you.ready));
+    const seats = (view && view.seats) || [];
+    const allReady = seats.length >= 2 && seats.every(function (seat) {
+      return seat.isAi || seat.isHost || seat.ready;
+    });
+    if (hintEl) {
+      if (!view || !view.you) {
+        hintEl.textContent = "Opening room…";
+      } else if (!host && !youReady) {
+        hintEl.textContent = "Tap Ready when you are set.";
+      } else if (!allReady) {
+        hintEl.textContent = "Waiting for everyone to ready up.";
+      } else if (host) {
+        hintEl.textContent = "Everyone is ready. Tap BEGIN.";
+      } else {
+        hintEl.textContent = "Everyone is ready. Waiting for the host to begin.";
+      }
+    }
+    if (readyBtn) {
+      readyBtn.hidden = !view || !view.you || host;
+      readyBtn.textContent = youReady ? "Unready" : "Ready";
+      readyBtn.classList.toggle("btn-amber", !youReady);
+      readyBtn.classList.toggle("btn-ghost", youReady);
+      readyBtn.setAttribute("aria-pressed", youReady ? "true" : "false");
+    }
+    if (startBtn) {
+      startBtn.hidden = !host;
+      startBtn.disabled = !view || !view.canStart;
+    }
+    if (aiBtn) aiBtn.hidden = !host;
+    if (roundsWrap) roundsWrap.hidden = !host;
+    if (roundsValue && view) roundsValue.textContent = String(view.rounds);
+    const minus = document.getElementById("lobby-rounds-minus");
+    const plus = document.getElementById("lobby-rounds-plus");
+    if (minus) minus.disabled = !host || (view && view.rounds <= WW.MIN_ROUNDS);
+    if (plus) plus.disabled = !host || (view && view.rounds >= WW.MAX_ROUNDS);
+    if (!rosterEl) return;
+    const typingInput =
+      document.activeElement &&
+      rosterEl.contains(document.activeElement) &&
+      document.activeElement.classList.contains("player-name-input")
+        ? document.activeElement
+        : null;
+    const keepId = typingInput ? typingInput.id : "";
+    const keepName = typingInput ? typingInput.value : "";
+    const keepStart = typingInput ? typingInput.selectionStart : 0;
+    const keepEnd = typingInput ? typingInput.selectionEnd : 0;
+    rosterEl.innerHTML = "";
+    seats.forEach(function (seat, index) {
+      const wrap = document.createElement("div");
+      const seatReady = Boolean(
+        seat.isAi || ((seat.isHost || seat.ready) && seat.connected)
+      );
+      const reconnecting = !seat.isAi && !seat.connected;
+      wrap.className =
+        "player-row" + (seatReady ? " is-lobby-ready" : " is-lobby-wait");
+      wrap.dataset.seatId = seat.id;
+      wrap.dataset.color = seat.color || PLAYER_COLORS[index];
+      wrap.dataset.ai = seat.isAi ? "1" : "";
+      wrap.dataset.aiLevel = seat.aiLevel || "";
+      const mine = view.you && view.you.seatId === seat.id;
+      const canEdit = Boolean(mine);
+      const id = "lobby-name-" + seat.id;
+      const statusClass = seatReady
+        ? " is-ready"
+        : reconnecting
+          ? " is-reconnect"
+          : " is-wait";
+      const statusText = seatReady
+        ? "ready"
+        : reconnecting
+          ? "reconnecting"
+          : "not ready";
+      wrap.innerHTML =
+        '<div class="player-avatar-wrap">' +
+        '<div class="player-avatar" aria-hidden="true"></div>' +
+        '<span class="lobby-ready-badge' +
+        (seatReady ? " is-ready" : " is-wait") +
+        '" aria-hidden="true">' +
+        (seatReady
+          ? '<svg viewBox="0 0 12 12" width="10" height="10"><path d="M2.1 6.2l2.6 2.6 5.2-5.6" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          : '<svg viewBox="0 0 12 12" width="9" height="9"><path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"/></svg>') +
+        "</span></div>" +
+        '<div class="field">' +
+        '<div class="player-name-head">' +
+        '<label for="' +
+        id +
+        '">' +
+        (seat.isHost ? "HOST" : seat.isAi ? "AI" : "PLAYER") +
+        "</label>" +
+        (mine ? '<span class="lobby-you">YOU</span>' : "") +
+        "</div>" +
+        '<div class="player-name-row">' +
+        '<div class="player-name-wrap">' +
+        '<input class="player-name-input" id="' +
+        id +
+        '" maxlength="24" autocomplete="off" ' +
+        (canEdit ? "" : "readonly ") +
+        "/>" +
+        (canEdit
+          ? '<button type="button" class="player-name-edit" tabindex="-1" aria-label="Edit your name">' +
+            '<span class="icon icon-pencil" aria-hidden="true">' +
+            '<img src="assets/pencil.svg" alt="" width="14" height="14" />' +
+            "</span></button>"
+          : "") +
+        "</div>" +
+        (host && !seat.isHost
+          ? '<button type="button" class="remove-player" data-seat-id="' +
+            seat.id +
+            '" aria-label="Remove">×</button>'
+          : "") +
+        "</div>" +
+        '<p class="lobby-status' +
+        statusClass +
+        '">' +
+        statusText +
+        "</p>" +
+        (canEdit
+          ? '<div class="player-tools">' +
+            colorSwatchesHtml(
+              seat.color,
+              seats
+                .filter(function (other) {
+                  return other.id !== seat.id;
+                })
+                .map(function (other) {
+                  return other.color;
+                })
+            ) +
+            "</div>"
+          : "") +
+        "</div>";
+      const input = wrap.querySelector(".player-name-input");
+      if (input) {
+        input.value =
+          keepId === id ? keepName : seat.name || "";
+      }
+      rosterEl.appendChild(wrap);
+      paintRowAvatar(wrap);
+    });
+    if (keepId) {
+      const restore = document.getElementById(keepId);
+      if (restore) {
+        restore.focus();
+        try {
+          restore.setSelectionRange(keepStart, keepEnd);
+        } catch (err) {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  function paintWait() {
+    const title = document.getElementById("wait-title");
+    const kicker = document.getElementById("wait-kicker");
+    const reconnect = document.getElementById("wait-reconnect");
+    const wordWrap = document.getElementById("wait-word");
+    const board = document.getElementById("wait-board");
+    const player = WW.currentPlayer(state);
+    if (title) {
+      title.textContent = player
+        ? "Waiting for " + player.name + "…"
+        : "Waiting…";
+    }
+    if (kicker) kicker.textContent = turnKickerCopy();
+    if (reconnect) reconnect.hidden = !(onlineView && onlineView.reconnecting);
+    if (!state.lastWord) {
+      if (wordWrap) wordWrap.hidden = true;
+      if (board) board.innerHTML = "";
+    } else if (board && wordWrap) {
+      wordWrap.hidden = false;
+      board.innerHTML = state.lastWord
+        .toUpperCase()
+        .split("")
+        .map(function (letter) {
+          return '<div class="tile" aria-hidden="true">' + escapeHtml(letter) + "</div>";
+        })
+        .join("");
+    }
   }
 
   function shareWordsus(labelId) {
+    const code = isOnline() && onlineView && onlineView.code;
     const payload = {
       title: "wordsus",
-      text: isDesktop()
-        ? "Same-screen five-letter word war."
-        : "Pass-and-play five-letter word war.",
-      url: window.location.href,
+      text: code
+        ? "Join my wordsus room. The code is " + code + "."
+        : isDesktop()
+          ? "Same-screen five-letter word war."
+          : "Pass-and-play five-letter word war.",
+      url: code ? roomInviteUrl(code) : window.location.origin + window.location.pathname,
     };
     const done = function (copied) {
       const label = document.getElementById(labelId);
@@ -528,6 +1081,36 @@
   }
 
   function dispatch(action) {
+    if (isOnline() && onlineView.screen === "game") {
+      if (action.type === "TICK") {
+        paintTimer();
+        return;
+      }
+      if (action.type === "PAUSE_TIMER" || action.type === "RESUME_TIMER") {
+        return;
+      }
+      if (action.type === "SPIN_DONE" || action.type === "REVEAL_DONE") {
+        return;
+      }
+      if (action.type === "TYPE" || action.type === "BACKSPACE") {
+        if (isMyTurn() && state.phase === "playing") {
+          state = WW.reduce(state, action);
+          try {
+            render();
+          } catch (err) {
+            console.error("render failed", err);
+          }
+        }
+      }
+      if (WW.CLIENT_GAME_ACTIONS && WW.CLIENT_GAME_ACTIONS[action.type]) {
+        const payload = { type: action.type };
+        if (action.letter) payload.letter = action.letter;
+        if (action.itemId) payload.itemId = action.itemId;
+        if (action.targetId) payload.targetId = action.targetId;
+        net.send({ type: "GAME", action: payload });
+      }
+      return;
+    }
     const prev = state;
     state = WW.reduce(state, action);
     if (prev.phase === "handoff" && state.phase !== "handoff") {
@@ -610,6 +1193,10 @@
   }
 
   function queueAi() {
+    if (isOnline()) {
+      stopAi();
+      return;
+    }
     ai.queue();
   }
 
@@ -753,19 +1340,26 @@
   }
 
   function closeEffectTips() {
-    document.querySelectorAll(".effect-name.is-open").forEach(function (btn) {
-      btn.classList.remove("is-open");
-      btn.setAttribute("aria-expanded", "false");
+    document.querySelectorAll(".effect-chip.is-open, .effect-name.is-open").forEach(function (el) {
+      el.classList.remove("is-open");
+      if (el.matches(".effect-name")) {
+        el.setAttribute("aria-expanded", "false");
+      }
+      const btn = el.querySelector && el.querySelector(".effect-name");
+      if (btn) btn.setAttribute("aria-expanded", "false");
     });
   }
 
   function onEffectListClick(event) {
-    const btn = event.target.closest(".effect-name");
-    if (!btn) return;
-    const open = !btn.classList.contains("is-open");
+    const chip = event.target.closest(".effect-chip");
+    if (!chip) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const open = !chip.classList.contains("is-open");
     closeEffectTips();
-    btn.classList.toggle("is-open", open);
-    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    chip.classList.toggle("is-open", open);
+    const btn = chip.querySelector(".effect-name");
+    if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
   }
 
   function clearRevealGuard() {
@@ -965,7 +1559,7 @@
       if (state.phase === "spinning") {
         dispatch({ type: "SPIN_DONE", nowMs: Date.now() });
       }
-    }, 4500);
+    }, 5200);
     const frozen = frozenIndices();
     const slots = state.frozenSlots || [];
     const target =
@@ -999,39 +1593,54 @@
     }
 
     const sequence = [];
-    let cycles = 2;
-    for (let c = 0; c < cycles; c += 1) {
+    for (let c = 0; c < 2; c += 1) {
       for (let i = 0; i < 5; i += 1) sequence.push(i);
     }
     for (let i = 0; i <= target; i += 1) sequence.push(i);
+    if (target < 4) {
+      sequence.push(target + 1);
+      sequence.push(target);
+    } else {
+      sequence.push(3);
+      sequence.push(4);
+    }
 
     let step = 0;
+    function highlight(index, settling) {
+      tiles.forEach(function (tile) {
+        tile.classList.remove("is-scanning", "is-settling");
+      });
+      if (!tiles[index]) return;
+      tiles[index].classList.add("is-scanning");
+      if (settling) tiles[index].classList.add("is-settling");
+    }
+
+    function lockChosen() {
+      if (state.phase !== "spinning") return;
+      tiles.forEach(function (tile, tileIndex) {
+        tile.classList.remove("is-scanning", "is-settling");
+        if (frozen[tileIndex]) {
+          tile.classList.add("is-locked", "is-frozen");
+        } else {
+          tile.classList.add("is-vanishing");
+        }
+      });
+      boardEl.classList.add("is-revealing");
+      spinTimer = window.setTimeout(function () {
+        dispatch({ type: "SPIN_DONE", nowMs: Date.now() });
+      }, 720);
+    }
+
     function scanStep() {
       if (state.phase !== "spinning") return;
-      tiles.forEach(function (tile) {
-        tile.classList.remove("is-scanning");
-      });
-      const index = sequence[step];
-      if (tiles[index]) tiles[index].classList.add("is-scanning");
+      const last = step >= sequence.length - 1;
+      highlight(sequence[step], last);
       step += 1;
-      if (step >= sequence.length) {
-        tiles.forEach(function (tile, tileIndex) {
-          tile.classList.remove("is-scanning");
-          if (frozen[tileIndex]) {
-            tile.classList.add("is-locked", "is-frozen");
-          } else {
-            tile.classList.add("is-vanishing");
-          }
-        });
-        boardEl.classList.add("is-revealing");
-        spinTimer = window.setTimeout(function () {
-          dispatch({ type: "SPIN_DONE", nowMs: Date.now() });
-        }, 700);
+      if (last) {
+        spinTimer = window.setTimeout(lockChosen, 480);
         return;
       }
-      const progress = step / sequence.length;
-      const delay = 55 + progress * progress * 240;
-      spinTimer = window.setTimeout(scanStep, delay);
+      spinTimer = window.setTimeout(scanStep, 140);
     }
 
     boardEl.classList.add("is-spinning");
@@ -1172,13 +1781,17 @@
 
   function paintTimer() {
     const limit = state.turnDurationMs || WW.TURN_MS;
-    const secs = Math.ceil(state.timeRemainingMs / 1000);
+    const remaining =
+      state.turnEndsAt != null
+        ? Math.max(0, state.turnEndsAt - Date.now())
+        : state.timeRemainingMs;
+    const secs = Math.ceil(remaining / 1000);
     timerSecsEl.textContent = String(secs);
-    const ratio = Math.max(0, Math.min(1, state.timeRemainingMs / limit));
+    const ratio = Math.max(0, Math.min(1, remaining / limit));
     timerFillEl.style.width = ratio * 100 + "%";
     const urgent = state.phase === "playing" && secs <= 5;
     timerEl.classList.toggle("is-urgent", urgent);
-    timerEl.classList.toggle("is-idle", state.phase !== "playing" && state.phase !== "revealing" && state.phase !== "spinning");
+    timerEl.classList.toggle("is-idle", state.phase !== "playing" && state.phase !== "revealing");
     timerEl.classList.toggle("is-hidden", Boolean(state.hideTimer));
     timerEl.setAttribute("aria-hidden", state.hideTimer ? "true" : "false");
     if (timerLabelEl) timerLabelEl.textContent = urgent ? "Hurry" : "Timer";
@@ -1260,6 +1873,11 @@
           escapeHtml(playerInitials(player.name)) +
           '</span><span class="name">' +
           escapeHtml(player.name) +
+          (isOnline() &&
+          onlineView.you &&
+          player.id === onlineView.you.playerId
+            ? '<span class="lobby-you">YOU</span>'
+            : "") +
           '</span><span class="pts-wrap">' +
           gainHtml +
           '<span class="pts">' +
@@ -1400,28 +2018,33 @@
     return copy;
   }
 
+  function turnKickerCopy() {
+    const player = WW.currentPlayer(state);
+    if (state.isSuddenDeath) return "Sudden death";
+    if (
+      !state.seeded ||
+      (state.lastSubmitResult && state.lastSubmitResult.opening)
+    ) {
+      return "First word";
+    }
+    const rounds = WW.clampRounds(state.turnsPerPlayer);
+    const counted =
+      state.phase === "revealing" && state.lastSubmitResult
+        ? player
+          ? player.turnsTaken
+          : 1
+        : player
+          ? player.turnsTaken + 1
+          : 1;
+    const turnNumber = Math.max(1, Math.min(rounds, counted));
+    return "Turn " + turnNumber + " of " + rounds;
+  }
+
   function paintPlayChrome() {
     const player = WW.currentPlayer(state);
     if (!player) return;
     turnWhoEl.textContent = player.name;
-    if (state.isSuddenDeath) {
-      turnKickerEl.textContent = "Sudden death";
-    } else if (
-      !state.seeded ||
-      (state.lastSubmitResult && state.lastSubmitResult.opening)
-    ) {
-      turnKickerEl.textContent = "First word";
-    } else {
-      const rounds = WW.clampRounds(state.turnsPerPlayer);
-      // turnsTaken is bumped on SUBMIT, so during the reveal it already counts
-      // the word still on screen.
-      const counted =
-        state.phase === "revealing" && state.lastSubmitResult
-          ? player.turnsTaken
-          : player.turnsTaken + 1;
-      const turnNumber = Math.max(1, Math.min(rounds, counted));
-      turnKickerEl.textContent = "Turn " + turnNumber + " of " + rounds;
-    }
+    turnKickerEl.textContent = turnKickerCopy();
     paintTimer();
     paintEffects(playEffectsEl, playEffectListEl);
     const scoringReveal =
@@ -1442,7 +2065,7 @@
         );
       }
     }
-    keyboardEl.hidden = state.phase !== "playing";
+    keyboardEl.hidden = state.phase !== "playing" || (isOnline() && !isMyTurn());
     keyboardEl.classList.toggle("is-reverse", Boolean(state.reverseType));
     keyboardEl.querySelectorAll(".key[data-key]").forEach(function (key) {
       const letter = key.dataset.key;
@@ -1472,19 +2095,19 @@
     handoffNameEl.textContent = player.name + "’s turn";
     suddenBannerEl.hidden = !state.isSuddenDeath;
     const isAi = Boolean(player.isAi);
-    handoffKickerEl.textContent = isAi
-      ? "An Average Individual"
-      : state.isSuddenDeath
-        ? "Sudden death"
-        : state.seeded
-          ? "Next up"
-          : "First word";
+    handoffKickerEl.textContent = turnKickerCopy();
     if (readyBtn) {
-      readyBtn.disabled = isAi;
-      readyBtn.hidden = isAi;
+      const hideReady = isAi || (isOnline() && !isMyTurn());
+      readyBtn.disabled = hideReady;
+      readyBtn.hidden = hideReady;
+    }
+    if (shopToggleBtn && isOnline() && !isMyTurn()) {
+      shopToggleBtn.hidden = true;
+    } else if (shopToggleBtn) {
+      shopToggleBtn.hidden = false;
     }
     if (isAi) shopOpen = false;
-    if (isAi) window.setTimeout(queueAi, 0);
+    if (isAi && !isOnline()) window.setTimeout(queueAi, 0);
     if (!state.lastWord) {
       handoffWordEl.hidden = true;
       handoffBoardEl.innerHTML = "";
@@ -1527,6 +2150,7 @@
   }
 
   function setShopOpen(open) {
+    if (open && isOnline() && !isMyTurn()) return;
     if (open && !state.seeded) return;
     const wasOpen = shopOpen;
     shopOpen = open;
@@ -1546,7 +2170,11 @@
 
   function paintShop() {
     const player = WW.currentPlayer(state);
-    const onHandoff = state.phase === "handoff" && player && state.seeded;
+    const onHandoff =
+      state.phase === "handoff" &&
+      player &&
+      state.seeded &&
+      (!isOnline() || isMyTurn());
     if (shopToggleBtn) {
       shopToggleBtn.hidden = !onHandoff || Boolean(player && player.isAi);
       shopToggleBtn.setAttribute("aria-expanded", shopOpen && onHandoff ? "true" : "false");
@@ -1868,15 +2496,31 @@
   }
 
   function paintRowSwatches(row) {
-    const color = (row.dataset.color || "").toLowerCase();
-    row.querySelectorAll(".color-swatch[data-color]").forEach(function (swatch) {
-      const selected =
-        swatch.getAttribute("data-color").toLowerCase() === color;
-      swatch.classList.toggle("is-selected", selected);
-      swatch.setAttribute("aria-pressed", selected ? "true" : "false");
+    const roster = row.closest(".setup-roster");
+    const rows = roster
+      ? Array.from(roster.querySelectorAll(".player-row"))
+      : [row];
+    rows.forEach(function (current) {
+      const taken = rows
+        .filter(function (other) {
+          return other !== current;
+        })
+        .map(function (other) {
+          return String(other.dataset.color || "").toLowerCase();
+        });
+      const color = (current.dataset.color || "").toLowerCase();
+      current.querySelectorAll(".color-swatch[data-color]").forEach(function (swatch) {
+        const value = swatch.getAttribute("data-color").toLowerCase();
+        const selected = value === color;
+        const used = taken.indexOf(value) !== -1 && !selected;
+        swatch.classList.toggle("is-selected", selected);
+        swatch.classList.toggle("is-taken", used);
+        swatch.disabled = used;
+        swatch.setAttribute("aria-pressed", selected ? "true" : "false");
+      });
+      const custom = current.querySelector(".color-swatch-custom input");
+      if (custom) custom.value = current.dataset.color || PLAYER_COLORS[0];
     });
-    const custom = row.querySelector(".color-swatch-custom input");
-    if (custom) custom.value = row.dataset.color || PLAYER_COLORS[0];
   }
 
   function aiNameForLevel(level) {
@@ -1937,16 +2581,33 @@
   }
 
   function openAiModal(row, trigger) {
-    if (!aiEl || !row) return;
+    if (!aiEl) return;
     aiTargetRow = row;
     paintAiModal();
     openOverlay(aiEl, trigger);
   }
 
   function applyAiLevel(level) {
-    if (!aiTargetRow) return;
     const normalized = WW.normalizeAiLevel(level);
     if (!normalized) return;
+    if (isOnline() && onlineView && onlineView.screen === "lobby") {
+      if (!aiTargetRow) {
+        net.send({
+          type: "ADD_AI",
+          level: normalized,
+          name: aiNameForLevel(normalized),
+        });
+      } else if (aiTargetRow.dataset.seatId) {
+        net.send({
+          type: "SET_AI",
+          seatId: aiTargetRow.dataset.seatId,
+          level: normalized,
+        });
+      }
+      closeOverlay(aiEl);
+      return;
+    }
+    if (!aiTargetRow) return;
     aiTargetRow.dataset.ai = "1";
     aiTargetRow.dataset.aiLevel = normalized;
     const input = aiTargetRow.querySelector(".player-name-input");
@@ -1959,6 +2620,11 @@
   }
 
   function clearAi() {
+    if (isOnline() && aiTargetRow && aiTargetRow.dataset.seatId) {
+      net.send({ type: "REMOVE_SEAT", seatId: aiTargetRow.dataset.seatId });
+      closeOverlay(aiEl);
+      return;
+    }
     if (!aiTargetRow) return;
     aiTargetRow.dataset.ai = "";
     aiTargetRow.dataset.aiLevel = "";
@@ -1971,17 +2637,38 @@
     closeOverlay(aiEl);
   }
 
-  function colorSwatchesHtml(selected) {
+  function uniquePlayerColor(requested, taken) {
+    const blocked = (taken || []).map(function (color) {
+      return String(color || "").toLowerCase();
+    });
+    const wanted = String(requested || "").trim().toLowerCase();
+    if (wanted && blocked.indexOf(wanted) === -1) {
+      return requested || PLAYER_COLORS[0];
+    }
+    for (let i = 0; i < PLAYER_COLORS.length; i += 1) {
+      if (blocked.indexOf(PLAYER_COLORS[i].toLowerCase()) === -1) {
+        return PLAYER_COLORS[i];
+      }
+    }
+    return requested || PLAYER_COLORS[0];
+  }
+
+  function colorSwatchesHtml(selected, taken) {
+    const blocked = (taken || []).map(function (color) {
+      return String(color || "").toLowerCase();
+    });
+    const mine = String(selected || "").toLowerCase();
     return (
       '<div class="player-colors" role="group" aria-label="Choose a color">' +
       PLAYER_COLORS.map(function (color) {
-        const selectedClass =
-          color.toLowerCase() === String(selected || "").toLowerCase()
-            ? " is-selected"
-            : "";
+        const value = color.toLowerCase();
+        const selectedClass = value === mine ? " is-selected" : "";
+        const takenClass =
+          blocked.indexOf(value) !== -1 && value !== mine ? " is-taken" : "";
         return (
           '<button type="button" class="color-swatch' +
           selectedClass +
+          takenClass +
           '" data-color="' +
           color +
           '" style="background:' +
@@ -1989,6 +2676,7 @@
           '" aria-label="' +
           colorName(color) +
           '"' +
+          (takenClass ? " disabled" : "") +
           (selectedClass ? ' aria-pressed="true"' : ' aria-pressed="false"') +
           "></button>"
         );
@@ -2026,13 +2714,18 @@
     const existing = players || collectSetupPlayers();
     nameFieldsEl.innerHTML = "";
     const canRemove = setupCount > WW.MIN_PLAYERS;
+    const assigned = [];
     for (let i = 0; i < setupCount; i += 1) {
       const wrap = document.createElement("div");
       wrap.className = "player-row";
       const id = "player-name-" + (i + 1);
       const placeholder = playerPlaceholder(i);
       const saved = existing[i] || {};
-      const color = saved.color || PLAYER_COLORS[i] || PLAYER_COLORS[0];
+      const color = uniquePlayerColor(
+        saved.color || PLAYER_COLORS[i] || PLAYER_COLORS[0],
+        assigned
+      );
+      assigned.push(color);
       wrap.dataset.color = color;
       wrap.innerHTML =
         '<div class="player-avatar" aria-hidden="true"></div>' +
@@ -2059,7 +2752,7 @@
         "</span></button></div>" +
         '<button type="button" class="player-ai" data-tip-align="end">Add AI</button></div>' +
         '<div class="player-tools">' +
-        colorSwatchesHtml(color) +
+        colorSwatchesHtml(color, assigned.slice(0, -1)) +
         "</div>" +
         "</div>" +
         (canRemove
@@ -2077,6 +2770,8 @@
       paintRowAvatar(wrap);
       paintRowAi(wrap);
     }
+    const firstRow = nameFieldsEl.querySelector(".player-row");
+    if (firstRow) paintRowSwatches(firstRow);
     const addBtn = document.getElementById("player-plus");
     if (addBtn) addBtn.hidden = setupCount >= WW.MAX_PLAYERS;
     paintRounds();
@@ -2097,6 +2792,49 @@
     paintScoreboard();
     paintPplChart();
     updateRestartButton();
+    document.body.classList.toggle("is-online", isOnline());
+    if (flow === "mode") {
+      showScreen("mode");
+      stopAi();
+      prevPhase = "mode";
+      return;
+    }
+    if (flow === "online-pick") {
+      showScreen("online");
+      stopAi();
+      prevPhase = "online";
+      return;
+    }
+    if (flow === "join") {
+      showScreen("join");
+      buildJoinKeyboard();
+      paintJoinBoard();
+      stopAi();
+      prevPhase = "join";
+      return;
+    }
+    if (flow === "kicked") {
+      showScreen("kicked");
+      stopAi();
+      prevPhase = "kicked";
+      return;
+    }
+    if (isOnline() && onlineView.screen === "lobby") {
+      showScreen("lobby");
+      paintLobby();
+      shopEl.hidden = true;
+      stopAi();
+      prevPhase = "lobby";
+      return;
+    }
+    if (isOnline() && onlineView.waiting && state.phase !== "game_over") {
+      showScreen("wait");
+      paintWait();
+      shopOpen = false;
+      shopEl.hidden = true;
+      prevPhase = "wait";
+      return;
+    }
     const phaseChanged = prevPhase !== state.phase;
     if (state.phase === "setup") {
       showScreen("setup");
@@ -2246,48 +2984,7 @@
   }
 
   function buildKeyboard() {
-    keyboardEl.innerHTML = "";
-    KEY_ROWS.forEach(function (row, rowIndex) {
-      const rowEl = document.createElement("div");
-      rowEl.className = "key-row";
-      if (rowIndex === 2) {
-        const del = document.createElement("button");
-        del.type = "button";
-        del.className = "key key-wide";
-        del.dataset.key = "BACKSPACE";
-        del.textContent = "del";
-        del.setAttribute("aria-label", "Delete last letter");
-        rowEl.appendChild(del);
-      }
-      row.split("").forEach(function (letter) {
-        const key = document.createElement("button");
-        key.type = "button";
-        key.className = "key";
-        key.dataset.key = letter;
-        const value = WW.letterValue(letter, letterPointsMap());
-        key.setAttribute(
-          "aria-label",
-          letter + ", " + value + (value === 1 ? " point" : " points")
-        );
-        key.innerHTML =
-          '<span class="key-letter">' +
-          letter +
-          '</span><span class="key-pts" aria-hidden="true">' +
-          value +
-          "</span>";
-        rowEl.appendChild(key);
-      });
-      if (rowIndex === 2) {
-        const enter = document.createElement("button");
-        enter.type = "button";
-        enter.className = "key key-wide";
-        enter.dataset.key = "ENTER";
-        enter.textContent = "enter";
-        enter.setAttribute("aria-label", "Submit word");
-        rowEl.appendChild(enter);
-      }
-      keyboardEl.appendChild(rowEl);
-    });
+    fillKeyboard(keyboardEl, true);
   }
 
   function keyFromEvent(event) {
@@ -2314,6 +3011,7 @@
 
   function focusLetterInput() {
     if (!letterInput || state.phase !== "playing" || isAiSeat()) return;
+    if (isOnline() && !isMyTurn()) return;
     if (document.activeElement !== letterInput) {
       letterInput.focus({ preventScroll: true });
     }
@@ -2355,12 +3053,23 @@
     if (key === "ESCAPE") {
       closeEffectTips();
     }
+    if (flow === "join") {
+      if (/^[A-Z]$/.test(key) || key === "BACKSPACE" || key === "ENTER") {
+        handleJoinKey(key);
+      }
+      return;
+    }
+    if (isOnline() && !isMyTurn() && state.phase !== "game_over") return;
     if (isAiSeat() && state.phase === "playing") return;
     if (state.phase === "handoff" && (key === "ENTER" || key === " ") && !shopOpen) {
       dispatch({ type: "READY", nowMs: Date.now() });
       return;
     }
     if (state.phase === "game_over" && key === "ENTER") {
+      if (isOnline()) {
+        if (onlineView.you && onlineView.you.isHost) net.send({ type: "RESET" });
+        return;
+      }
       setupCount = Math.max(state.players.length, 2);
       dispatch({ type: "RESET" });
       return;
@@ -2389,6 +3098,10 @@
       (state.phase === "playing" || state.phase === "spinning") &&
       !overlayOpen()
     ) {
+      if (isOnline()) {
+        paintTimer();
+        return;
+      }
       dispatch({ type: "TICK", nowMs: now });
     }
   }
@@ -2399,6 +3112,198 @@
     } finally {
       rafId = window.requestAnimationFrame(tick);
     }
+  }
+
+  const modeLocalBtn = document.getElementById("mode-local-btn");
+  const modeOnlineBtn = document.getElementById("mode-online-btn");
+  if (modeLocalBtn) {
+    modeLocalBtn.addEventListener("click", function () {
+      flow = "local";
+      render();
+      const begin = document.getElementById("start-btn");
+      if (begin) begin.focus();
+    });
+  }
+  if (modeOnlineBtn) {
+    modeOnlineBtn.addEventListener("click", function () {
+      flow = "online-pick";
+      render();
+    });
+  }
+  const onlineHostBtn = document.getElementById("online-host-btn");
+  const onlineJoinBtn = document.getElementById("online-join-btn");
+  const onlineBackBtn = document.getElementById("online-back-btn");
+  if (onlineHostBtn) {
+    onlineHostBtn.addEventListener("click", startHosting);
+  }
+  if (onlineJoinBtn) {
+    onlineJoinBtn.addEventListener("click", goToJoin);
+  }
+  if (onlineBackBtn) {
+    onlineBackBtn.addEventListener("click", function () {
+      flow = "mode";
+      render();
+    });
+  }
+  const joinBackBtn = document.getElementById("join-back-btn");
+  if (joinBackBtn) {
+    joinBackBtn.addEventListener("click", function () {
+      flow = "online-pick";
+      render();
+    });
+  }
+  const kickedLeaveBtn = document.getElementById("kicked-leave-btn");
+  const kickedJoinBtn = document.getElementById("kicked-join-btn");
+  if (kickedLeaveBtn) {
+    kickedLeaveBtn.addEventListener("click", function () {
+      flow = "mode";
+      render();
+    });
+  }
+  if (kickedJoinBtn) {
+    kickedJoinBtn.addEventListener("click", goToJoin);
+  }
+  const joinKeyboard = document.getElementById("join-keyboard");
+  if (joinKeyboard) {
+    joinKeyboard.addEventListener("pointerdown", function (event) {
+      const key = event.target.closest("[data-key]");
+      if (!key) return;
+      event.preventDefault();
+      handleJoinKey(key.dataset.key);
+    });
+  }
+  const lobbyCopyBtn = document.getElementById("lobby-copy-btn");
+  if (lobbyCopyBtn) {
+    lobbyCopyBtn.addEventListener("click", function () {
+      const code = (onlineView && onlineView.code) || net.code();
+      const link = roomInviteUrl(code);
+      if (!code) return;
+      const done = function (label) {
+        lobbyCopyBtn.textContent = label;
+        window.clearTimeout(lobbyCopyFlash);
+        lobbyCopyFlash = window.setTimeout(function () {
+          lobbyCopyBtn.textContent = "Copy game link";
+        }, 1400);
+      };
+      const payload = {
+        title: "wordsus",
+        text: "Join my wordsus room. The code is " + code + ".",
+        url: link,
+      };
+      const copyLink = function () {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) return;
+        navigator.clipboard.writeText(link).then(function () {
+          done("Copied");
+        });
+      };
+      if (navigator.share) {
+        navigator.share(payload)
+          .then(function () {
+            done("Shared");
+          })
+          .catch(function () {
+            copyLink();
+          });
+        return;
+      }
+      copyLink();
+    });
+  }
+  const lobbyReadyBtn = document.getElementById("lobby-ready-btn");
+  if (lobbyReadyBtn) {
+    lobbyReadyBtn.addEventListener("click", function () {
+      if (!onlineView || !onlineView.you || onlineView.you.isHost) return;
+      net.send({ type: "SET_READY", ready: !onlineView.you.ready });
+    });
+  }
+  const lobbyStartBtn = document.getElementById("lobby-start-btn");
+  if (lobbyStartBtn) {
+    lobbyStartBtn.addEventListener("click", function () {
+      net.send({ type: "START" });
+    });
+  }
+  const lobbyAiBtn = document.getElementById("lobby-ai-btn");
+  if (lobbyAiBtn) {
+    lobbyAiBtn.addEventListener("click", function () {
+      aiTargetRow = null;
+      openAiModal(null, lobbyAiBtn);
+    });
+  }
+  const lobbyRoundsMinus = document.getElementById("lobby-rounds-minus");
+  const lobbyRoundsPlus = document.getElementById("lobby-rounds-plus");
+  if (lobbyRoundsMinus) {
+    lobbyRoundsMinus.addEventListener("click", function () {
+      if (!onlineView || !onlineView.you || !onlineView.you.isHost) return;
+      net.send({ type: "SET_ROUNDS", rounds: onlineView.rounds - 1 });
+    });
+  }
+  if (lobbyRoundsPlus) {
+    lobbyRoundsPlus.addEventListener("click", function () {
+      if (!onlineView || !onlineView.you || !onlineView.you.isHost) return;
+      net.send({ type: "SET_ROUNDS", rounds: onlineView.rounds + 1 });
+    });
+  }
+  const lobbyLeaveBtn = document.getElementById("lobby-leave-btn");
+  if (lobbyLeaveBtn) {
+    lobbyLeaveBtn.addEventListener("click", leaveOnline);
+  }
+  const lobbyRoster = document.getElementById("lobby-roster");
+  if (lobbyRoster) {
+    lobbyRoster.addEventListener("input", function (event) {
+      const row = event.target.closest(".player-row");
+      if (!row) return;
+      if (event.target.classList.contains("player-name-input")) {
+        net.send({ type: "SET_NAME", name: event.target.value });
+        paintRowAvatar(row);
+        return;
+      }
+      if (event.target.type === "color") {
+        const taken = Array.from(lobbyRoster.querySelectorAll(".player-row"))
+          .filter(function (other) {
+            return other !== row;
+          })
+          .map(function (other) {
+            return other.dataset.color;
+          });
+        row.dataset.color = uniquePlayerColor(event.target.value, taken);
+        net.send({ type: "SET_COLOR", color: row.dataset.color });
+        paintRowAvatar(row);
+        paintRowSwatches(row);
+      }
+    });
+    lobbyRoster.addEventListener("click", function (event) {
+      const editBtn = event.target.closest(".player-name-edit");
+      if (editBtn) {
+        const row = editBtn.closest(".player-row");
+        const input = row && row.querySelector(".player-name-input");
+        if (input && !input.readOnly) input.focus();
+        return;
+      }
+      const removeBtn = event.target.closest(".remove-player");
+      if (removeBtn) {
+        net.send({ type: "REMOVE_SEAT", seatId: removeBtn.getAttribute("data-seat-id") });
+        return;
+      }
+      const swatch = event.target.closest(".color-swatch[data-color]");
+      if (!swatch || swatch.disabled || swatch.classList.contains("is-taken")) {
+        return;
+      }
+      const row = swatch.closest(".player-row");
+      if (!row) return;
+      const color = swatch.getAttribute("data-color");
+      row.dataset.color = color;
+      net.send({ type: "SET_COLOR", color: color });
+      paintRowAvatar(row);
+      paintRowSwatches(row);
+    });
+  }
+
+  const setupBackBtn = document.getElementById("setup-back-btn");
+  if (setupBackBtn) {
+    setupBackBtn.addEventListener("click", function () {
+      flow = "mode";
+      render();
+    });
   }
 
   document.getElementById("player-plus").addEventListener("click", function () {
@@ -2442,7 +3347,14 @@
       return;
     }
     if (event.target.type === "color") {
-      row.dataset.color = event.target.value;
+      const taken = Array.from(nameFieldsEl.querySelectorAll(".player-row"))
+        .filter(function (other) {
+          return other !== row;
+        })
+        .map(function (other) {
+          return other.dataset.color;
+        });
+      row.dataset.color = uniquePlayerColor(event.target.value, taken);
       paintRowAvatar(row);
       paintRowSwatches(row);
     }
@@ -2474,7 +3386,9 @@
       return;
     }
     const swatch = event.target.closest(".color-swatch[data-color]");
-    if (!swatch) return;
+    if (!swatch || swatch.disabled || swatch.classList.contains("is-taken")) {
+      return;
+    }
     const row = swatch.closest(".player-row");
     if (!row) return;
     row.dataset.color = swatch.getAttribute("data-color");
@@ -2573,6 +3487,11 @@
   });
 
   document.getElementById("again-btn").addEventListener("click", function () {
+    if (isOnline()) {
+      if (onlineView.you && onlineView.you.isHost) net.send({ type: "RESET" });
+      else leaveOnline();
+      return;
+    }
     setupCount = Math.max(state.players.length, 2);
     dispatch({ type: "RESET" });
   });
@@ -2607,6 +3526,12 @@
 
   document.getElementById("restart-btn").addEventListener("click", function () {
     if (state.phase === "setup") return;
+    const lede = document.getElementById("restart-lede");
+    if (lede) {
+      lede.textContent = isOnline()
+        ? "This ends the match for everyone and returns the table to the lobby."
+        : "This wipes the current scores and returns everyone to setup.";
+    }
     openOverlay(restartEl, restartBtn);
   });
 
@@ -2616,6 +3541,11 @@
 
   document.getElementById("restart-confirm-btn").addEventListener("click", function () {
     closeOverlay(restartEl);
+    if (isOnline()) {
+      if (onlineView.you && onlineView.you.isHost) net.send({ type: "RESET" });
+      else leaveOnline();
+      return;
+    }
     setupCount = Math.max(state.players.length, 2);
     dispatch({ type: "RESET" });
   });
@@ -2695,6 +3625,12 @@
       if (!key) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
+      if (flow === "join" && (key === "BACKSPACE" || key === "ENTER" || /^[A-Z]$/.test(key))) {
+        event.preventDefault();
+        handleKey(key);
+        return;
+      }
+
       if (state.phase === "playing" && (key === "BACKSPACE" || key === "ENTER" || /^[A-Z]$/.test(key))) {
         event.preventDefault();
         handleKey(key);
@@ -2735,8 +3671,16 @@
   }
 
   const demoKey = params.get("demo");
-  handoffEffectListEl.addEventListener("click", onEffectListClick);
-  playEffectListEl.addEventListener("click", onEffectListClick);
+  if (handoffEffectListEl) {
+    handoffEffectListEl.addEventListener("click", onEffectListClick);
+  }
+  if (playEffectListEl) {
+    playEffectListEl.addEventListener("click", onEffectListClick);
+  }
+  document.addEventListener("click", function (event) {
+    if (event.target.closest(".effect-chip")) return;
+    closeEffectTips();
+  });
 
   if (demoKey && WW.getDemoState) {
     if (landingEl) {
@@ -2746,6 +3690,7 @@
     if (appEl) appEl.hidden = false;
     const demoState = WW.getDemoState(demoKey);
     if (demoState) {
+      flow = "local";
       state = demoState;
       if (demoKey === "setup") {
         setupCount = 4;

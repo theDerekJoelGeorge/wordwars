@@ -2,9 +2,14 @@
   "name": "wordwars",
   "private": true,
   "scripts": {
-    "test": "node --test tests/engine.test.js"
+    "test": "node --test tests/engine.test.js tests/room.test.js",
+    "party": "partykit dev",
+    "party:deploy": "partykit deploy"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1"
+  },
+  "devDependencies": {
+    "partykit": "^0.0.115"
   }
 }
