@@ -238,7 +238,7 @@
     return [
       {
         visual: "logo",
-        title: "a guide to wordsus",
+        title: "a guide to worsus",
         bodyHtml:
           "<p>A game where letters and words become your accessories for a fun battle of wits.</p>" +
           "<p>Will you play it safe or add chaos to the mix ?</p>",

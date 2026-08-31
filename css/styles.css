@@ -144,6 +144,20 @@ img {
   line-height: 0;
 }
 
+.logo a {
+  display: flex;
+  align-items: center;
+  line-height: 0;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.logo a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+
 .logo img {
   display: block;
   height: 32px;
