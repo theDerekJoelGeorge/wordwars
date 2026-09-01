@@ -1371,13 +1371,14 @@ img {
 }
 
 .effect-tip {
+  --tip-caret: 14px;
   position: absolute;
   left: 0;
   top: calc(100% + 8px);
   bottom: auto;
   z-index: 20;
   width: max-content;
-  max-width: 240px;
+  max-width: min(240px, calc(100vw - 24px));
   padding: 8px 10px;
   border: 1px solid var(--ink);
   background: var(--paper);
@@ -1397,7 +1398,7 @@ img {
 .effect-tip::after {
   content: "";
   position: absolute;
-  left: 14px;
+  left: var(--tip-caret);
   bottom: 100%;
   border: 6px solid transparent;
   border-bottom-color: var(--ink);

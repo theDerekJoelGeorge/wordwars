@@ -1401,6 +1401,42 @@
     });
   }
 
+  function viewportLeft() {
+    return window.visualViewport ? window.visualViewport.offsetLeft : 0;
+  }
+
+  function viewportRight() {
+    return window.visualViewport
+      ? window.visualViewport.offsetLeft + window.visualViewport.width
+      : window.innerWidth;
+  }
+
+  function fitEffectTips(listEl) {
+    const root = listEl || document;
+    const tips = root.querySelectorAll(".effect-tip");
+    if (!tips.length) return;
+    const pad = 12;
+    const leftBound = viewportLeft() + pad;
+    const rightBound = viewportRight() - pad;
+    tips.forEach(function (tip) {
+      tip.style.left = "0px";
+      const rect = tip.getBoundingClientRect();
+      if (rect.width < 8) return;
+      let shift = 0;
+      if (rect.right > rightBound) shift = rightBound - rect.right;
+      if (rect.left + shift < leftBound) shift = leftBound - rect.left;
+      tip.style.left = shift + "px";
+      const width = tip.getBoundingClientRect().width;
+      const caret = Math.min(Math.max(12, 14 - shift), Math.max(12, width - 18));
+      tip.style.setProperty("--tip-caret", caret + "px");
+    });
+  }
+
+  function fitAllEffectTips() {
+    fitEffectTips(playEffectListEl);
+    fitEffectTips(handoffEffectListEl);
+  }
+
   function onEffectListClick(event) {
     const chip = event.target.closest(".effect-chip");
     if (!chip) return;
@@ -1411,6 +1447,7 @@
     chip.classList.toggle("is-open", open);
     const btn = chip.querySelector(".effect-name");
     if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) fitEffectTips(chip.closest(".effect-list"));
   }
 
   function clearRevealGuard() {
@@ -1846,6 +1883,10 @@
         );
       })
       .join("");
+    fitEffectTips(listEl);
+    window.requestAnimationFrame(function () {
+      fitEffectTips(listEl);
+    });
   }
 
   function paintTimer() {
@@ -3805,6 +3846,11 @@
     render();
     if (!onboardingEl.hidden) paintOnboardingSlide();
   });
+
+  window.addEventListener("resize", fitAllEffectTips);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", fitAllEffectTips);
+  }
 
   if (!WW.WORD_SET || !WW.WORD_SET.size) {
     WW.setDictionary(WW.WORDS || []);
