@@ -212,8 +212,7 @@ img {
 }
 
 .btn-share {
-  /* Hidden on all viewports. Restore with display: inline-flex. */
-  display: none;
+  display: inline-flex;
   align-items: center;
   gap: 0.55rem;
   height: 44px;
@@ -3314,7 +3313,7 @@ body.ai-turn .keyboard {
 
 .landing-top {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 1rem;
   flex-shrink: 0;
