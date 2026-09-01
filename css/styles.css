@@ -227,6 +227,12 @@ img {
   font-size: 17px;
 }
 
+@media (max-width: 720px) {
+  .btn-share {
+    display: none;
+  }
+}
+
 .icon {
   display: grid;
   place-items: center;
@@ -3317,6 +3323,12 @@ body.ai-turn .keyboard {
   align-items: center;
   gap: 1rem;
   flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .landing-top {
+    justify-content: flex-end;
+  }
 }
 
 .landing-about-link {
