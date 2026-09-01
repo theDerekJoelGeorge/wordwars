@@ -169,58 +169,75 @@
     return String(type || "").indexOf("mystery_") === 0;
   };
 
-  WW.mysteryOutcomeLabel = function mysteryOutcomeLabel(type) {
-    if (type === "mystery_nothing") return "Nothing Happened";
-    if (type === "mystery_double") return "Double or Nothing";
-    if (type === "mystery_half") return "Half Off";
-    if (type === "mystery_oracle") return "Oracle";
-    if (type === "mystery_dead_letter") return "Dead Letter";
-    if (type === "mystery_wildcard") return "Wildcard";
-    if (type === "mystery_golden_letter") return "Golden Letter";
-    if (type === "mystery_charity") return "Charity";
-    if (type === "mystery_palindrome") return "Palindrome";
-    if (type === "mystery_copycat") return "Copy Cat";
+  WW.mysteryInfo = function mysteryInfo(type, effect) {
+    const letter = effect && effect.letter;
+    const golden = WW.GOLDEN_LETTER_VALUE || 10;
+    const details = {
+      mystery_resolved: {
+        name: "Mystery",
+        description:
+          "A mystery prank is coming — it will be revealed when this rival's turn begins.",
+      },
+      mystery_nothing: {
+        name: "Nothing Happened",
+        description: "The prank fizzled — absolutely nothing happened.",
+      },
+      mystery_double: {
+        name: "Double or Nothing",
+        description: "This rival's word scores double this turn.",
+      },
+      mystery_half: {
+        name: "Half Off",
+        description: "This rival's word scores half this turn.",
+      },
+      mystery_oracle: {
+        name: "Oracle",
+        description:
+          "This rival may peek at the highest-scoring word that fits the board.",
+      },
+      mystery_dead_letter: {
+        name: "Dead Letter",
+        description: letter
+          ? letter + " scores 0 this turn."
+          : "One random letter scores 0 this turn.",
+      },
+      mystery_wildcard: {
+        name: "Wildcard",
+        description:
+          "The frozen letter becomes a blank — any letter can go in that slot.",
+      },
+      mystery_golden_letter: {
+        name: "Golden Letter",
+        description: letter
+          ? letter + " is worth " + golden + " this turn."
+          : "One random letter is worth " + golden + " this turn.",
+      },
+      mystery_charity: {
+        name: "Charity",
+        description: "Half of this rival's word points go to last place.",
+      },
+      mystery_palindrome: {
+        name: "Palindrome",
+        description: "This rival must play a palindrome.",
+      },
+      mystery_copycat: {
+        name: "Copy Cat",
+        description: "The word also scores for the player who bought Mystery.",
+      },
+    };
+    return details[type] || null;
+  };
+
+  WW.mysteryOutcomeLabel = function mysteryOutcomeLabel(type, effect) {
+    const info = WW.mysteryInfo(type, effect);
+    if (info) return info.name;
     const item = WW.getShopItem(type);
     return item ? item.name : String(type || "");
   };
 
   WW.mysteryOutcomeDescription = function mysteryOutcomeDescription(type, effect) {
-    if (type === "mystery_nothing") {
-      return "The prank fizzled — absolutely nothing happened.";
-    }
-    if (type === "mystery_double") {
-      return "This rival's word scores double this turn.";
-    }
-    if (type === "mystery_half") {
-      return "This rival's word scores half this turn.";
-    }
-    if (type === "mystery_oracle") {
-      return "This rival may peek at the highest-scoring word that fits the board.";
-    }
-    if (type === "mystery_dead_letter") {
-      const letter = effect && effect.letter;
-      return letter
-        ? letter + " scores 0 this turn."
-        : "One random letter scores 0 this turn.";
-    }
-    if (type === "mystery_wildcard") {
-      return "The frozen letter becomes a blank — any letter can go in that slot.";
-    }
-    if (type === "mystery_golden_letter") {
-      const letter = effect && effect.letter;
-      return letter
-        ? letter + " is worth " + WW.GOLDEN_LETTER_VALUE + " this turn."
-        : "One random letter is worth " + WW.GOLDEN_LETTER_VALUE + " this turn.";
-    }
-    if (type === "mystery_charity") {
-      return "Half of this rival's word points go to last place.";
-    }
-    if (type === "mystery_palindrome") {
-      return "This rival must play a palindrome.";
-    }
-    if (type === "mystery_copycat") {
-      return "The word also scores for the player who bought Mystery.";
-    }
+    const info = WW.mysteryInfo(type, effect);
+    if (info) return info.description;
     const item = WW.getShopItem(type);
     return item ? item.description : "";
   };

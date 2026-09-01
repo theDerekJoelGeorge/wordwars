@@ -1744,9 +1744,13 @@
   }
 
   function sabotageName(type, effect) {
+    if (WW.mysteryInfo) {
+      const info = WW.mysteryInfo(type, effect);
+      if (info && info.name) return info.name;
+    }
     if (type === "mystery_resolved") return "Mystery";
     if (WW.mysteryOutcomeLabel && WW.isMysteryOutcome && WW.isMysteryOutcome(type)) {
-      return WW.mysteryOutcomeLabel(type);
+      return WW.mysteryOutcomeLabel(type, effect);
     }
     if (type === "obsession" && effect && effect.letter) {
       return "Obsession (" + effect.letter + ")";
@@ -1757,10 +1761,14 @@
   }
 
   function sabotageDescription(type, effect) {
-    if (type === "mystery_resolved") {
-      return "A mystery prank is coming — it will be revealed when your rival's turn begins.";
+    if (WW.mysteryInfo) {
+      const info = WW.mysteryInfo(type, effect);
+      if (info && info.description) return info.description;
     }
-    if (WW.mysteryOutcomeDescription && WW.mysteryOutcomeDescription(type, effect)) {
+    if (type === "mystery_resolved") {
+      return "A mystery prank is coming — it will be revealed when this rival's turn begins.";
+    }
+    if (WW.mysteryOutcomeDescription) {
       const mysteryDesc = WW.mysteryOutcomeDescription(type, effect);
       if (mysteryDesc) return mysteryDesc;
     }
@@ -1818,16 +1826,23 @@
           '">' +
           escapeHtml(initials) +
           "</span></div>" +
-          '<button type="button" class="effect-name" aria-expanded="false" aria-describedby="' +
-          tipId +
-          '">' +
+          '<div class="effect-copy">' +
+          '<button type="button" class="effect-name" aria-expanded="false"' +
+          (description ? ' aria-describedby="' + tipId + '"' : "") +
+          ">" +
+          '<span class="effect-title">' +
           escapeHtml(sabotageName(effect.type, effect)) +
+          "</span>" +
           missNote +
-          '<span class="effect-tip" id="' +
-          tipId +
-          '" role="tooltip">' +
-          escapeHtml(description) +
-          "</span></button></div>"
+          "</button>" +
+          (description
+            ? '<span class="effect-tip" id="' +
+              tipId +
+              '" role="tooltip">' +
+              escapeHtml(description) +
+              "</span>"
+            : "") +
+          "</div></div>"
         );
       })
       .join("");

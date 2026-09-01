@@ -813,6 +813,22 @@ test("mystery outcomes are not shop items", () => {
   );
 });
 
+test("every mystery roll has a chip name and tooltip", () => {
+  ["mystery_resolved"]
+    .concat(
+      WW.MYSTERY_OUTCOMES.map(function (entry) {
+        return entry.type;
+      })
+    )
+    .forEach(function (type) {
+      const info = WW.mysteryInfo(type, { letter: "Q" });
+      assert.ok(info, type);
+      assert.ok(info.name, type);
+      assert.ok(info.description, type);
+      assert.notEqual(info.description, "");
+    });
+});
+
 test("BUY_SABOTAGE not_cheap doubles the cost of sabotages against the buyer", () => {
   const rng = rngSeq([0.4]);
   let state = handoffWithScores([50, 40], rng);
