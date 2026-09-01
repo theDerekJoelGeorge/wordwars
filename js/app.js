@@ -105,6 +105,7 @@
   const landingEl = document.getElementById("landing");
   const landingTypewriterEl = document.getElementById("landing-typewriter");
   const landingReadyBtn = document.getElementById("landing-ready-btn");
+  const landingAboutReadyBtn = document.getElementById("landing-about-ready-btn");
   const landingRulesBtn = document.getElementById("landing-rules-btn");
   const landingShareBtn = document.getElementById("landing-share-btn");
   const appEl = document.getElementById("app");
@@ -466,7 +467,8 @@
   }
 
   function pendingRoomCode() {
-    const fromQuery = WW.normalizeRoomCode(params.get("room") || "");
+    const live = new URLSearchParams(window.location.search);
+    const fromQuery = WW.normalizeRoomCode(live.get("room") || "");
     if (fromQuery.length === (WW.ROOM_CODE_LENGTH || 5)) return fromQuery;
     const fromHash = WW.normalizeRoomCode(
       String(window.location.hash || "").replace(/^#/, "")
@@ -482,6 +484,33 @@
     return path + "?room=" + encodeURIComponent(word);
   }
 
+  function syncIndexability() {
+    const invite = pendingRoomCode();
+    let robots = document.querySelector('meta[name="robots"]');
+    if (invite) {
+      if (!robots) {
+        robots = document.createElement("meta");
+        robots.setAttribute("name", "robots");
+        document.head.appendChild(robots);
+      }
+      robots.setAttribute("content", "noindex, follow");
+    } else if (robots) {
+      robots.remove();
+    }
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) {
+      canonical.setAttribute("href", "https://www.worsus.com/");
+    }
+  }
+
+  function syncLandingCredit() {
+    if (!siteCreditEl) return;
+    const tucked = Boolean(
+      onLanding && landingEl && !landingEl.hidden && landingEl.scrollTop > 24
+    );
+    siteCreditEl.classList.toggle("is-tucked", tucked);
+  }
+
   function syncRoomUrl(code) {
     if (!window.history || !window.history.replaceState) return;
     const url = new URL(window.location.href);
@@ -494,6 +523,7 @@
     if (next !== now) {
       window.history.replaceState({}, "", url);
     }
+    syncIndexability();
   }
 
   function enterGameFromLanding() {
@@ -502,6 +532,7 @@
     stopLandingTypewriter();
     landingEl.hidden = true;
     if (appEl) appEl.hidden = false;
+    syncLandingCredit();
     const invite = pendingRoomCode();
     if (invite) {
       joinDraft = invite.split("");
@@ -1021,12 +1052,12 @@
     }
   }
 
-  function shareWordsus(labelId) {
+  function shareWorsus(labelId) {
     const code = isOnline() && onlineView && onlineView.code;
     const payload = {
-      title: "wordsus",
+      title: "worsus",
       text: code
-        ? "Join my wordsus room. The code is " + code + "."
+        ? "Join my worsus room. The code is " + code + "."
         : isDesktop()
           ? "Same-screen five-letter word war."
           : "Pass-and-play five-letter word war.",
@@ -3275,8 +3306,8 @@
         }, 1400);
       };
       const payload = {
-        title: "wordsus",
-        text: "Join my wordsus room. The code is " + code + ".",
+        title: "worsus",
+        text: "Join my worsus room. The code is " + code + ".",
         url: link,
       };
       const copyLink = function () {
@@ -3646,12 +3677,12 @@
   });
 
   document.getElementById("share-btn").addEventListener("click", function () {
-    shareWordsus("share-label");
+    shareWorsus("share-label");
   });
 
   if (landingShareBtn) {
     landingShareBtn.addEventListener("click", function () {
-      shareWordsus("landing-share-label");
+      shareWorsus("landing-share-label");
     });
   }
 
@@ -3663,6 +3694,9 @@
 
   if (landingReadyBtn) {
     landingReadyBtn.addEventListener("click", enterGameFromLanding);
+  }
+  if (landingAboutReadyBtn) {
+    landingAboutReadyBtn.addEventListener("click", enterGameFromLanding);
   }
 
   keyboardEl.addEventListener("pointerdown", function (event) {
@@ -3818,8 +3852,14 @@
   } catch (err) {
     console.error("Keyboard failed to build", err);
   }
+  if (landingEl) {
+    landingEl.addEventListener("scroll", syncLandingCredit, { passive: true });
+  }
+
   render();
   syncBackgroundInert();
+  syncIndexability();
+  syncLandingCredit();
 
   if (demoKey && state.phase === "spinning") {
     window.requestAnimationFrame(function () {

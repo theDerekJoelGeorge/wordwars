@@ -1,0 +1,10 @@
+{
+  "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/",
+      "has": [{ "type": "query", "key": "room" }],
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, follow" }]
+    }
+  ]
+}

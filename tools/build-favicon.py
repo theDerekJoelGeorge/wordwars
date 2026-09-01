@@ -62,7 +62,7 @@ def write_svg() -> str:
     size = view - border
     svg = (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"'
-        ' role="img" aria-label="wordsus">\n'
+        ' role="img" aria-label="worsus">\n'
         f'  <rect width="32" height="32" fill="{CREAM}"/>\n'
         f'  <rect x="{inset:.2f}" y="{inset:.2f}" width="{size:.2f}"'
         f' height="{size:.2f}" fill="none" stroke="{AMBER}"'

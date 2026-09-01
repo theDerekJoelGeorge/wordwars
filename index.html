@@ -5,7 +5,103 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#ffffff" />
-    <title>worsus - a chaotic word war</title>
+    <title>worsus — chaotic 5-letter word game</title>
+    <meta
+      name="description"
+      content="Play worsus, a chaotic 5-letter word game. Score like Scrabble, freeze letters, and sabotage rivals. Pass-and-play, vs AI, or online rooms."
+    />
+    <link rel="canonical" href="https://www.worsus.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="worsus" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="worsus — chaotic 5-letter word game" />
+    <meta
+      property="og:description"
+      content="Play worsus, a chaotic 5-letter word game. Score like Scrabble, freeze letters, and sabotage rivals. Pass-and-play, vs AI, or online rooms."
+    />
+    <meta property="og:url" content="https://www.worsus.com/" />
+    <meta property="og:image" content="https://www.worsus.com/assets/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="worsus — chaotic 5-letter word game" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="worsus — chaotic 5-letter word game" />
+    <meta
+      name="twitter:description"
+      content="Play worsus, a chaotic 5-letter word game. Score like Scrabble, freeze letters, and sabotage rivals. Pass-and-play, vs AI, or online rooms."
+    />
+    <meta name="twitter:image" content="https://www.worsus.com/assets/og-image.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "name": "worsus",
+            "url": "https://www.worsus.com/",
+            "description": "A chaotic 5-letter word game. Score like Scrabble, freeze letters from the last word, and sabotage rivals. Play pass-and-play, versus AI, or in an online room.",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Web browser",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "author": {
+              "@type": "Person",
+              "name": "Derek Joel",
+              "url": "https://www.thederekjoel.com"
+            },
+            "image": "https://www.worsus.com/assets/og-image.png"
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is worsus?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "worsus is a chaotic 5-letter word game you play in the browser. You chain dictionary words, score letters like Scrabble, and spend points on sabotages."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do you play worsus?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Each turn you have 30 seconds to type a valid 5-letter word. Letters from the last word can freeze in place. The first word starts the chain and scores nothing. Then each player takes the chosen number of scoring turns. A tie goes to sudden death."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is worsus like Wordle?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Wordle is a solo guess-the-word puzzle. worsus is a multiplayer chain: you invent words, score them, and sabotage whoever goes next. It is also not Word Sus, the imposter party game."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I play worsus with friends online?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Host a five-letter room and send the link. You can also pass one device, or add an AI on the setup screen."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is worsus free?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Play in the browser. No download."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
     <link rel="icon" href="favicon.ico" sizes="48x48" />
@@ -16,8 +112,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=logo-home" />
-    <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+    <link rel="stylesheet" href="css/styles.css?v=seo-2" />
     <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
   </head>
   <body>
@@ -33,11 +128,12 @@
         </button>
       </header>
 
-      <main class="landing-main">
-        <div class="landing-logo" aria-label="wordsus">
+      <main>
+        <div class="landing-main">
+        <h1 class="landing-logo" aria-label="worsus">
           <img
             src="assets/wordsus-logo-for%20GIF.png"
-            alt=""
+            alt="worsus"
             width="1200"
             height="320"
             decoding="async"
@@ -46,7 +142,7 @@
             <span class="landing-type-char" id="landing-type-char"></span>
             <span class="landing-type-caret"></span>
           </span>
-        </div>
+        </h1>
         <p class="landing-tagline">Can your vocabulary handle some chaos ?</p>
         <div class="landing-actions">
           <button type="button" class="landing-btn landing-btn-rules" id="landing-rules-btn">
@@ -64,6 +160,93 @@
             />
           </button>
         </div>
+        </div>
+
+        <section class="landing-about" aria-labelledby="landing-about-title">
+          <p class="kicker">what this is</p>
+          <h2 id="landing-about-title" class="headline headline-sm">a 5-letter word war with sabotage</h2>
+          <p class="landing-about-lead">
+            worsus is a chaotic 5-letter word game. Type a dictionary word in 30 seconds.
+            Letters score like Scrabble. Then a letter from your word can freeze in place,
+            so the next player has to work around it. Spend points in the sabotage shop to
+            freeze extra letters, hide the clock, or force backwards typing.
+          </p>
+
+          <h3>how to play</h3>
+          <ol class="landing-rules">
+            <li>Pass the device. The next player taps Ready when they have the phone.</li>
+            <li>Type any five-letter dictionary word. Letters score like Scrabble.</li>
+            <li>After you are ready, one or more letters from the last word may freeze in place.</li>
+            <li>Between turns, open the shop to spend points on sabotages — freeze extra letters, hide the clock, force backwards typing, and more.</li>
+            <li>The first word scores nothing and starts the chain. Then each player takes the chosen number of scoring turns. A tie goes to sudden death.</li>
+            <li>Playing alone? Tap Add AI on a rival on the setup screen. Playing apart? Host a five-letter room and have friends type the word.</li>
+          </ol>
+
+          <h3>how you play</h3>
+          <ul class="landing-modes">
+            <li><strong>local</strong> pass the device</li>
+            <li><strong>ai</strong> add a rival on setup</li>
+            <li><strong>online</strong> host a five-letter room</li>
+          </ul>
+
+          <h3>not wordle. not an imposter game.</h3>
+          <p>
+            Nobody is hiding a secret word. This is not Word Sus, the imposter party game.
+            You chain five-letter words, score them, and sabotage whoever goes next.
+          </p>
+
+          <h3>questions</h3>
+          <div class="landing-faq">
+            <details open>
+              <summary>What is worsus?</summary>
+              <p>
+                A chaotic 5-letter word game you play in the browser. You chain dictionary
+                words, score letters like Scrabble, and spend points on sabotages.
+              </p>
+            </details>
+            <details>
+              <summary>How do you play worsus?</summary>
+              <p>
+                Each turn you have 30 seconds to type a valid 5-letter word. Letters from
+                the last word can freeze in place. The first word starts the chain and
+                scores nothing. Then each player takes the chosen number of scoring turns.
+                A tie goes to sudden death.
+              </p>
+            </details>
+            <details>
+              <summary>Is worsus like Wordle?</summary>
+              <p>
+                No. Wordle is a solo guess-the-word puzzle. worsus is a multiplayer chain:
+                you invent words, score them, and sabotage whoever goes next. It is also
+                not Word Sus, the imposter party game.
+              </p>
+            </details>
+            <details>
+              <summary>Can I play worsus with friends online?</summary>
+              <p>
+                Yes. Host a five-letter room and send the link. You can also pass one
+                device, or add an AI on the setup screen.
+              </p>
+            </details>
+            <details>
+              <summary>Is worsus free?</summary>
+              <p>Yes. Play in the browser. No download.</p>
+            </details>
+          </div>
+
+          <div class="landing-about-play">
+            <button type="button" class="landing-btn landing-btn-ready" id="landing-about-ready-btn">
+              <span>READY</span>
+              <img
+                class="landing-ready-arrow"
+                src="assets/landing-arrow.svg"
+                alt=""
+                width="16"
+                height="22"
+              />
+            </button>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -71,10 +254,10 @@
       <a class="skip-link" href="#main">Skip to game</a>
       <header class="masthead">
         <h1 class="logo">
-          <a href="./" aria-label="wordsus home">
+          <a href="./" aria-label="worsus home">
             <img
               src="assets/wordsus-logo-black.png"
-              alt=""
+              alt="worsus"
               width="1936"
               height="444"
             />
@@ -747,6 +930,6 @@
     <script src="js/room.js?v=mystery-pool"></script>
     <script src="js/net.js?v=lobby-hold"></script>
     <script src="js/demo.js?v=hostile-miss"></script>
-    <script src="js/app.js?v=guide-worsus"></script>
+    <script src="js/app.js?v=seo-2"></script>
   </body>
 </html>
