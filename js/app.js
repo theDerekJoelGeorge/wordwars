@@ -105,7 +105,6 @@
   const landingEl = document.getElementById("landing");
   const landingTypewriterEl = document.getElementById("landing-typewriter");
   const landingReadyBtn = document.getElementById("landing-ready-btn");
-  const landingAboutReadyBtn = document.getElementById("landing-about-ready-btn");
   const landingRulesBtn = document.getElementById("landing-rules-btn");
   const landingShareBtn = document.getElementById("landing-share-btn");
   const appEl = document.getElementById("app");
@@ -3695,9 +3694,6 @@
   if (landingReadyBtn) {
     landingReadyBtn.addEventListener("click", enterGameFromLanding);
   }
-  if (landingAboutReadyBtn) {
-    landingAboutReadyBtn.addEventListener("click", enterGameFromLanding);
-  }
 
   keyboardEl.addEventListener("pointerdown", function (event) {
     const key = event.target.closest("[data-key]");
@@ -3860,6 +3856,17 @@
   syncBackgroundInert();
   syncIndexability();
   syncLandingCredit();
+
+  if (!demoKey && (params.get("play") === "1" || params.get("ready") === "1")) {
+    enterGameFromLanding();
+    if (window.history && window.history.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("play");
+      url.searchParams.delete("ready");
+      const next = url.pathname + url.search;
+      window.history.replaceState({}, "", next || "./");
+    }
+  }
 
   if (demoKey && state.phase === "spinning") {
     window.requestAnimationFrame(function () {

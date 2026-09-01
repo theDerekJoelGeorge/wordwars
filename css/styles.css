@@ -3315,25 +3315,40 @@ body.ai-turn .keyboard {
 .landing-top {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
   flex-shrink: 0;
 }
 
-#landing > main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.landing-about-link {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  padding: 8px 2px;
+  min-height: 44px;
+  font-family: var(--logo);
+  font-weight: 700;
+  font-size: 20px;
+  color: inherit;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.landing-about-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .landing-main {
-  flex: 0 0 auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 28px;
   text-align: center;
-  min-height: calc(100svh - 7rem);
+  min-height: 0;
   padding: 2rem 0;
 }
 
@@ -3443,6 +3458,11 @@ body.ai-turn .keyboard {
   outline-offset: 2px;
 }
 
+a.landing-btn {
+  text-decoration: none;
+  color: inherit;
+}
+
 .landing-btn-rules {
   background: #141414;
   color: #fff;
@@ -3475,12 +3495,20 @@ body.ai-turn .keyboard {
   border-top: 1px solid var(--ink);
 }
 
+.landing-about h1,
+.landing-about h2,
 .landing-about h3 {
   margin: 2rem 0 0.7rem;
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.3;
   text-transform: lowercase;
+}
+
+.landing-about h1.headline {
+  margin: 0;
+  font-size: clamp(1.6rem, 5vw, 32px);
+  line-height: 1.15;
 }
 
 .landing-about-lead,
@@ -3577,6 +3605,57 @@ body.ai-turn .keyboard {
   margin-top: 2rem;
 }
 
+.about-page {
+  min-height: 100svh;
+}
+
+.about-shell {
+  min-height: 100svh;
+  padding: 48px clamp(1.25rem, 5vw, 69px) 2rem;
+}
+
+.about-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--ink);
+}
+
+.about-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+  font-family: var(--logo);
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.about-back img {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.about-back:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.about-page .landing-about {
+  border-top: 0;
+  padding: 0 0 7.5rem;
+}
+
+.about-page .site-credit {
+  z-index: 2;
+}
+
 .site-credit {
   position: fixed;
   right: clamp(1.25rem, 5vw, 69px);
@@ -3645,7 +3724,6 @@ body.ai-turn .keyboard {
 
   .landing-main {
     gap: 22px;
-    min-height: calc(100svh - 6.5rem);
   }
 
   .landing-btn {
@@ -3665,6 +3743,10 @@ body.ai-turn .keyboard {
 
   .site-credit p {
     text-align: center;
+  }
+
+  .about-shell {
+    padding: 24px 1rem 20px;
   }
 }
 
