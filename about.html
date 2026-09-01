@@ -42,7 +42,7 @@
             "name": "What is worsus?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "worsus is a chaotic 5-letter word game you play in the browser. You chain dictionary words, score letters like Scrabble, and spend points on sabotages."
+              "text": "A chaotic word game you play with a group of friends or an Average Individual (AI). You enter in words, score points on the individual letters, and spend those points on sabotages. The one with the highest points at the end of the game walks away with bragging rights."
             }
           },
           {
@@ -55,10 +55,18 @@
           },
           {
             "@type": "Question",
+            "name": "What is PPL?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "PPL stands for Points Per Letter and is a chart showing the points for each letter for that specific game. The PPL shuffles every game making each run unique and make sure you have your eye out on the PPL since players can shuffle it mid game by buying a specific sabotage."
+            }
+          },
+          {
+            "@type": "Question",
             "name": "Is worsus like Wordle?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "No. Wordle is a solo guess-the-word puzzle. worsus is a multiplayer chain: you invent words, score them, and sabotage whoever goes next. It is also not Word Sus, the imposter party game."
+              "text": "No. Wordle is a solo guess-the-word puzzle. Worsus is a multiplayer word game that takes elements of Wordle and Scrabble and ties it all together with some unique twists. Play a game and you'll see that worsus is nothing like wordle. It is also not Word Sus, the imposter party game."
             }
           },
           {
@@ -66,7 +74,7 @@
             "name": "Can I play worsus with friends online?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes. Host a five-letter room and send the link. You can also pass one device, or add an AI on the setup screen."
+              "text": "Yes. You can either host a room for upto 6 players or join into a room hosted by your friend. MMO is not in the works as of now."
             }
           },
           {
@@ -90,68 +98,108 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=seo-5" />
+    <link rel="stylesheet" href="css/styles.css?v=about-3" />
     <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
   </head>
   <body class="about-page">
     <div class="about-shell">
       <header class="about-top">
-        <a class="about-back" href="./">
-          <img src="assets/back-arrow.svg" alt="" width="16" height="16" />
-          <span>worsus</span>
-        </a>
-        <a class="landing-btn landing-btn-ready" href="./?play=1">
-          <span>READY</span>
+        <a class="about-logo" href="./" aria-label="worsus home">
           <img
-            class="landing-ready-arrow"
-            src="assets/landing-arrow.svg"
-            alt=""
-            width="16"
-            height="22"
+            src="assets/wordsus-logo-black.png"
+            alt="worsus"
+            width="170"
+            height="39"
           />
         </a>
+        <button type="button" class="btn-share" id="about-share-btn">
+          <span id="about-share-label" aria-live="polite">share</span>
+          <span class="icon icon-share" aria-hidden="true">
+            <img src="assets/share.svg" alt="" width="16" height="14" />
+          </span>
+        </button>
       </header>
 
-      <main class="landing-about" aria-labelledby="landing-about-title">
-        <p class="kicker">what this is</p>
-        <h1 id="landing-about-title" class="headline headline-sm">a 5-letter word war with sabotage</h1>
-        <p class="landing-about-lead">
-          worsus is a chaotic 5-letter word game. Type a dictionary word in 30 seconds.
-          Letters score like Scrabble. Then a letter from your word can freeze in place,
-          so the next player has to work around it. Spend points in the sabotage shop to
-          freeze extra letters, hide the clock, or force backwards typing.
+      <main class="about-main" aria-labelledby="about-title">
+        <div class="about-intro">
+          <a class="about-back" href="./">&lt; Back</a>
+          <div class="about-heading">
+            <p class="about-kicker">so what did you stumble upon ?</p>
+            <h1 id="about-title">about the game</h1>
+          </div>
+        </div>
+
+        <img
+          class="about-mark"
+          src="assets/wordsus-logo-black.png"
+          alt=""
+          width="387"
+          height="89"
+          aria-hidden="true"
+        />
+
+        <div class="about-copy">
+          <p>
+            Wordsus is a chaotic word game where every turn is a race to outscore and
+            sabotage your opponents. You have 30 seconds to build a valid word using
+            the letters available to you. Each letter earns points, so clever word
+            choices can give you a serious advantage.
+          </p>
+          <p>
+            After you submit your word, one of its letters freeze in place, forcing
+            the next player to work around it. As the game progresses, the words
+            become more restricted, turning every round into a tense test of
+            vocabulary, speed, and strategy.
+          </p>
+          <p>
+            Use the points you earn in the Sabotage Shop to disrupt your opponents.
+            The best players don’t just find high-scoring words, they create problems
+            for their rivals on their way to victory.
+          </p>
+          <p>Think fast, choose your letters carefully, and/or sabotage your way to victory.</p>
+        </div>
+
+        <h2>modes of play</h2>
+        <div class="about-modes" role="tablist" aria-label="Modes of play">
+          <button
+            type="button"
+            class="about-mode-tab"
+            role="tab"
+            id="about-mode-local"
+            aria-selected="true"
+            aria-controls="about-mode-copy"
+            data-mode="local"
+          >
+            local
+          </button>
+          <button
+            type="button"
+            class="about-mode-tab"
+            role="tab"
+            id="about-mode-online"
+            aria-selected="false"
+            aria-controls="about-mode-copy"
+            data-mode="online"
+            tabindex="-1"
+          >
+            online
+          </button>
+        </div>
+        <p class="about-mode-copy" id="about-mode-copy" role="tabpanel" aria-labelledby="about-mode-local">
+          This mode is designed for a local co-op play with friends on the same device.
+          If you are playing alone, you’ll be able to add in AI opponents to play against.
+          (fun tip: Try watching all 3 AIs play against each other)
         </p>
 
-        <h2>how to play</h2>
-        <ol class="landing-rules">
-          <li>Pass the device. The next player taps Ready when they have the phone.</li>
-          <li>Type any five-letter dictionary word. Letters score like Scrabble.</li>
-          <li>After you are ready, one or more letters from the last word may freeze in place.</li>
-          <li>Between turns, open the shop to spend points on sabotages — freeze extra letters, hide the clock, force backwards typing, and more.</li>
-          <li>The first word scores nothing and starts the chain. Then each player takes the chosen number of scoring turns. A tie goes to sudden death.</li>
-          <li>Playing alone? Tap Add AI on a rival on the setup screen. Playing apart? Host a five-letter room and have friends type the word.</li>
-        </ol>
-
-        <h2>how you play</h2>
-        <ul class="landing-modes">
-          <li><strong>local</strong> pass the device</li>
-          <li><strong>ai</strong> add a rival on setup</li>
-          <li><strong>online</strong> host a five-letter room</li>
-        </ul>
-
-        <h2>not wordle. not an imposter game.</h2>
-        <p>
-          Nobody is hiding a secret word. This is not Word Sus, the imposter party game.
-          You chain five-letter words, score them, and sabotage whoever goes next.
-        </p>
-
-        <h2>questions</h2>
-        <div class="landing-faq">
+        <h2>frequently asked questions</h2>
+        <div class="landing-faq about-faq">
           <details open>
             <summary>What is worsus?</summary>
             <p>
-              A chaotic 5-letter word game you play in the browser. You chain dictionary
-              words, score letters like Scrabble, and spend points on sabotages.
+              A chaotic word game you play with a group of friends or an Average
+              Individual (AI). You enter in words, score points on the individual
+              letters, and spend those points on sabotages. The one with the highest
+              points at the end of the game walks away with bragging rights.
             </p>
           </details>
           <details>
@@ -164,18 +212,29 @@
             </p>
           </details>
           <details>
+            <summary>What is PPL ?</summary>
+            <p>
+              PPL stands for Points Per Letter and is a chart showing the points for
+              each letter for that specific game. The PPL shuffles every game making
+              each run unique and make sure you have your eye out on the PPL since
+              players can shuffle it mid game by buying a specific sabotage.
+            </p>
+          </details>
+          <details>
             <summary>Is worsus like Wordle?</summary>
             <p>
-              No. Wordle is a solo guess-the-word puzzle. worsus is a multiplayer chain:
-              you invent words, score them, and sabotage whoever goes next. It is also
-              not Word Sus, the imposter party game.
+              No. Wordle is a solo guess-the-word puzzle. Worsus is a multiplayer word
+              game that takes elements of Wordle and Scrabble and ties it all together
+              with some unique twists. Play a game and you'll see that worsus is nothing
+              like wordle.<br />
+              It is also not Word Sus, the imposter party game.
             </p>
           </details>
           <details>
             <summary>Can I play worsus with friends online?</summary>
             <p>
-              Yes. Host a five-letter room and send the link. You can also pass one
-              device, or add an AI on the setup screen.
+              Yes. You can either host a room for upto 6 players or join into a room
+              hosted by your friend. MMO is not in the works as of now.
             </p>
           </details>
           <details>
@@ -206,5 +265,83 @@
         <img src="assets/logo-orange.png" alt="" width="48" height="39" />
       </a>
     </footer>
+
+    <script>
+      (function () {
+        var MODE_COPY = {
+          local:
+            "This mode is designed for a local co-op play with friends on the same device. If you are playing alone, you’ll be able to add in AI opponents to play against. (fun tip: Try watching all 3 AIs play against each other)",
+          online:
+            "This mode is designed for remote play with friends, each on their own device. Host a room and share the five-letter code, or join one with a code. (fun tip: hop on a call together while you play the game)",
+        };
+        var copyEl = document.getElementById("about-mode-copy");
+        var tabs = Array.prototype.slice.call(
+          document.querySelectorAll(".about-mode-tab")
+        );
+
+        function selectMode(tab) {
+          tabs.forEach(function (other) {
+            var on = other === tab;
+            other.setAttribute("aria-selected", on ? "true" : "false");
+            other.tabIndex = on ? 0 : -1;
+          });
+          var mode = tab.getAttribute("data-mode");
+          copyEl.textContent = MODE_COPY[mode] || MODE_COPY.local;
+          copyEl.setAttribute("aria-labelledby", tab.id);
+        }
+
+        tabs.forEach(function (tab) {
+          tab.addEventListener("click", function () {
+            selectMode(tab);
+          });
+          tab.addEventListener("keydown", function (event) {
+            var key = event.key;
+            if (key !== "ArrowRight" && key !== "ArrowLeft") return;
+            event.preventDefault();
+            var index = tabs.indexOf(tab);
+            var next =
+              key === "ArrowRight"
+                ? tabs[(index + 1) % tabs.length]
+                : tabs[(index - 1 + tabs.length) % tabs.length];
+            next.focus();
+            selectMode(next);
+          });
+        });
+
+        var shareBtn = document.getElementById("about-share-btn");
+        var shareLabel = document.getElementById("about-share-label");
+        var shareFlash = 0;
+        if (shareBtn) {
+          shareBtn.addEventListener("click", function () {
+            var payload = {
+              title: "worsus",
+              text: "A chaotic 5-letter word war with sabotage.",
+              url: window.location.origin + "/",
+            };
+            var done = function (copied) {
+              if (!shareLabel) return;
+              shareLabel.textContent = copied ? "copied" : "shared";
+              window.clearTimeout(shareFlash);
+              shareFlash = window.setTimeout(function () {
+                shareLabel.textContent = "share";
+              }, 1400);
+            };
+            if (navigator.share) {
+              navigator.share(payload)
+                .then(function () {
+                  done(false);
+                })
+                .catch(function () {});
+              return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(payload.url).then(function () {
+                done(true);
+              });
+            }
+          });
+        }
+      })();
+    </script>
   </body>
 </html>
