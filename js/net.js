@@ -13,7 +13,7 @@
     return "wordsus.thederekjoelgeorge.partykit.dev";
   };
 
-  function socketUrl(code) {
+  function partySocketUrl(party, roomId) {
     const host = WW.partyHost();
     const local =
       host.indexOf("localhost") === 0 || host.indexOf("127.0.0.1") === 0;
@@ -22,9 +22,15 @@
       proto +
       "://" +
       host +
-      "/parties/main/" +
-      encodeURIComponent(WW.normalizeRoomCode(code))
+      "/parties/" +
+      party +
+      "/" +
+      encodeURIComponent(roomId)
     );
+  }
+
+  function socketUrl(code) {
+    return partySocketUrl("main", WW.normalizeRoomCode(code));
   }
 
   function seatKey(code) {
@@ -216,6 +222,131 @@
       disconnect: function () {
         closed = true;
         openMsg = null;
+        clearReconnect();
+        clearPing();
+        if (socket) {
+          try {
+            socket.onclose = null;
+            socket.close();
+          } catch (err) {
+            /* ignore */
+          }
+        }
+        socket = null;
+      },
+      connected: function () {
+        return Boolean(socket && socket.readyState === 1);
+      },
+    };
+  };
+
+  WW.createDailyNet = function createDailyNet(hooks) {
+    let socket = null;
+    let dateKey = "";
+    let closed = true;
+    let reconnectTimer = 0;
+    let pingTimer = 0;
+    let deviceId = "";
+
+    function emitError(err) {
+      if (hooks.onError) hooks.onError(err);
+    }
+
+    function clearReconnect() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = 0;
+      }
+    }
+
+    function clearPing() {
+      if (pingTimer) {
+        clearInterval(pingTimer);
+        pingTimer = 0;
+      }
+    }
+
+    function send(msg) {
+      if (!socket || socket.readyState !== 1) return false;
+      socket.send(JSON.stringify(msg));
+      return true;
+    }
+
+    function scheduleReconnect() {
+      if (closed || !dateKey || !deviceId) return;
+      clearReconnect();
+      reconnectTimer = setTimeout(function () {
+        reconnectTimer = 0;
+        if (closed) return;
+        bindSocket(dateKey, deviceId);
+      }, 1500);
+    }
+
+    function bindSocket(nextDate, nextDevice) {
+      dateKey = nextDate;
+      deviceId = nextDevice;
+      closed = false;
+      clearPing();
+      if (socket) {
+        try {
+          socket.onclose = null;
+          socket.close();
+        } catch (err) {
+          /* ignore */
+        }
+      }
+      socket = new WebSocket(partySocketUrl("main", WW.dailyRoomId(dateKey)));
+      socket.onopen = function () {
+        send({ type: "HELLO", deviceId: deviceId });
+        clearPing();
+        pingTimer = setInterval(function () {
+          send({ type: "PING" });
+        }, 20000);
+      };
+      socket.onmessage = function (event) {
+        let msg = event.data;
+        try {
+          msg = JSON.parse(event.data);
+        } catch (err) {
+          return;
+        }
+        if (msg.type === "ERROR") {
+          emitError(msg);
+          return;
+        }
+        if (hooks.onMessage) hooks.onMessage(msg);
+      };
+      socket.onclose = function () {
+        clearPing();
+        socket = null;
+        if (closed) return;
+        if (hooks.onDisconnect) hooks.onDisconnect();
+        scheduleReconnect();
+      };
+      socket.onerror = function () {
+        if (closed) return;
+        emitError({
+          code: "socket",
+          message: "Could not reach today's leaderboard.",
+        });
+      };
+    }
+
+    return {
+      connect: function (nextDate, nextDevice) {
+        bindSocket(nextDate, nextDevice);
+      },
+      submit: function (payload) {
+        return send({
+          type: "SUBMIT",
+          deviceId: payload.deviceId,
+          name: payload.name,
+          word: payload.word,
+        });
+      },
+      send: send,
+      disconnect: function () {
+        closed = true;
         clearReconnect();
         clearPing();
         if (socket) {

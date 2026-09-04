@@ -63,7 +63,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=tip-edge" />
+    <link rel="stylesheet" href="css/styles.css?v=daily-hide-nav" />
     <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
   </head>
   <body>
@@ -111,6 +111,20 @@
             />
           </button>
         </div>
+        <button type="button" class="landing-daily" id="landing-daily-btn">
+          <span class="landing-daily-kicker">Daily</span>
+          <span class="landing-daily-date" id="landing-daily-date"></span>
+          <span
+            class="board board-preview daily-preview"
+            id="landing-daily-preview"
+            aria-hidden="true"
+          ></span>
+          <span class="landing-daily-hint" id="landing-daily-hint"></span>
+          <span class="landing-daily-cta">
+            <span>Play today’s puzzle</span>
+            <img src="assets/landing-arrow.svg" alt="" width="16" height="22" />
+          </span>
+        </button>
       </main>
     </div>
 
@@ -171,7 +185,7 @@
             <p class="kicker" id="mode-kicker">GAME SETUP</p>
             <h2 class="headline setup-title" id="mode-title">CHOOSE MODE</h2>
             <p class="setup-hint">
-              Play locally on this device, or online with friends.
+              Play locally, online with friends, or today’s daily puzzle.
             </p>
             <div class="mode-pick">
               <button type="button" class="mode-card" id="mode-local-btn">
@@ -186,7 +200,83 @@
                 </span>
                 <span class="mode-card-label">Online</span>
               </button>
+              <button type="button" class="mode-card" id="mode-daily-btn">
+                <span class="mode-card-icon" aria-hidden="true">
+                  <img src="assets/mode-daily.svg" alt="" width="36" height="36" />
+                </span>
+                <span class="mode-card-label">Daily</span>
+              </button>
             </div>
+          </div>
+        </section>
+
+        <section
+          id="screen-daily"
+          class="screen"
+          hidden
+          aria-labelledby="daily-title"
+        >
+          <div class="mode-setup">
+            <button type="button" class="setup-back" id="daily-back-btn">
+              <span class="setup-back-icon" aria-hidden="true">
+                <img src="assets/back-arrow.svg" alt="" width="16" height="16" />
+              </span>
+              Back
+            </button>
+            <p class="kicker" id="daily-kicker">DAILY</p>
+            <h2 class="headline setup-title" id="daily-title">TODAY’S PUZZLE</h2>
+            <p class="setup-hint" id="daily-date">Same freeze and PPL for everyone.</p>
+            <div
+              id="daily-preview"
+              class="board board-preview daily-preview"
+              role="img"
+              aria-label="Today’s frozen letter"
+            ></div>
+            <p class="setup-hint" id="daily-hint">
+              Find the highest-scoring five-letter word that keeps the frozen letter.
+            </p>
+            <label class="daily-name-label" for="daily-name-input">Nickname</label>
+            <input
+              id="daily-name-input"
+              class="daily-name-input"
+              type="text"
+              maxlength="24"
+              autocomplete="nickname"
+              spellcheck="false"
+            />
+            <div class="setup-actions">
+              <button type="button" class="btn btn-amber btn-begin" id="daily-play-btn">
+                PLAY
+                <span class="icon icon-arrow" aria-hidden="true">
+                  <img src="assets/arrow.svg" alt="" width="16" height="22" />
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="screen-daily-results"
+          class="screen"
+          hidden
+          aria-labelledby="daily-results-title"
+        >
+          <p class="kicker" id="daily-results-kicker">Daily</p>
+          <h2 class="headline" id="daily-results-title" tabindex="-1">Your score</h2>
+          <div class="daily-score-line" id="daily-score-line"></div>
+          <p class="setup-hint" id="daily-score-note"></p>
+          <ol class="rank-list" id="daily-rank-list" aria-label="Daily leaderboard"></ol>
+          <p class="setup-hint" id="daily-board-status" hidden></p>
+          <div class="actions">
+            <button type="button" class="btn btn-wide" id="daily-again-btn">
+              Try another
+            </button>
+            <button type="button" class="btn btn-amber btn-wide" id="daily-share-btn">
+              <span id="daily-share-label" aria-live="polite">Share</span>
+              <span class="icon icon-share" aria-hidden="true">
+                <img src="assets/share.svg" alt="" width="16" height="14" />
+              </span>
+            </button>
           </div>
         </section>
 
@@ -790,10 +880,11 @@
     <script src="js/dictionary.js"></script>
     <script src="js/shop.js?v=mystery-tips"></script>
     <script src="js/engine.js?v=mystery-pool"></script>
+    <script src="js/daily.js?v=daily-room"></script>
     <script src="js/ai.js?v=mystery-pool"></script>
     <script src="js/room.js?v=mystery-pool"></script>
-    <script src="js/net.js?v=lobby-hold"></script>
+    <script src="js/net.js?v=daily-room"></script>
     <script src="js/demo.js?v=hostile-miss"></script>
-    <script src="js/app.js?v=tip-edge"></script>
+    <script src="js/app.js?v=daily-hint-score"></script>
   </body>
 </html>

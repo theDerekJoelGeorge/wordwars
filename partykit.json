@@ -2,5 +2,8 @@
   "name": "wordsus",
   "main": "party/server.js",
   "compatibilityDate": "2024-11-06",
-  "serve": "."
+  "serve": ".",
+  "parties": {
+    "daily": "party/daily.js"
+  }
 }

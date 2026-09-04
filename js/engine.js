@@ -187,6 +187,7 @@
       oracleUsed: Boolean(state.oracleUsed),
       oracleWord: state.oracleWord || null,
       seeded: Boolean(state.seeded),
+      daily: Boolean(state.daily),
       turnsPerPlayer: roundsFor(state),
       playLog: clonePlayLog(state.playLog),
     };
@@ -778,6 +779,7 @@
       oracleUsed: Boolean(state.oracleUsed),
       oracleWord: state.oracleWord || null,
       seeded: Boolean(state.seeded),
+      daily: Boolean(state.daily),
       turnsPerPlayer: roundsFor(state),
       playLog: clonePlayLog(state.playLog),
     };
@@ -982,6 +984,7 @@
       oracleUsed: false,
       oracleWord: null,
       seeded: false,
+      daily: false,
       turnsPerPlayer: WW.TURNS_PER_PLAYER,
       playLog: [],
     };

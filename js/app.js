@@ -43,6 +43,8 @@
     handoff: document.getElementById("screen-handoff"),
     play: document.getElementById("screen-play"),
     results: document.getElementById("screen-results"),
+    daily: document.getElementById("screen-daily"),
+    dailyResults: document.getElementById("screen-daily-results"),
   };
 
   const scoreboardEl = document.getElementById("scoreboard");
@@ -105,6 +107,7 @@
   const landingEl = document.getElementById("landing");
   const landingTypewriterEl = document.getElementById("landing-typewriter");
   const landingReadyBtn = document.getElementById("landing-ready-btn");
+  const landingDailyBtn = document.getElementById("landing-daily-btn");
   const landingRulesBtn = document.getElementById("landing-rules-btn");
   const landingShareBtn = document.getElementById("landing-share-btn");
   const appEl = document.getElementById("app");
@@ -136,12 +139,22 @@
   let aiTargetRow = null;
   let flow = "mode";
   let onlineView = null;
+  let dailyPuzzle = null;
+  let dailyBoard = { ranks: [], you: null, total: 0, status: "" };
+  let dailyLast = null;
+  let dailyPendingWord = "";
+  let dailyFromLanding = false;
   let joinDraft = ["", "", "", "", ""];
   let joinShake = 0;
   const net = WW.createNet({
     onMessage: onNetMessage,
     onError: onNetError,
     onDisconnect: onNetDisconnect,
+  });
+  const dailyNet = WW.createDailyNet({
+    onMessage: onDailyNetMessage,
+    onError: onDailyNetError,
+    onDisconnect: onDailyNetDisconnect,
   });
   const AI_YEARS = {
     beginner: "2023",
@@ -546,6 +559,12 @@
       syncBackgroundInert();
       return;
     }
+    if (params.get("daily") === "1") {
+      dailyFromLanding = true;
+      enterDailyIntro();
+      syncBackgroundInert();
+      return;
+    }
     flow = "mode";
     render();
     syncBackgroundInert();
@@ -555,6 +574,394 @@
 
   function isOnline() {
     return Boolean(onlineView);
+  }
+
+  function isDailyFlow() {
+    return (
+      flow === "daily" ||
+      flow === "daily-intro" ||
+      flow === "daily-results" ||
+      Boolean(state && state.daily)
+    );
+  }
+
+  function formatDailyDate(dateKey) {
+    const parts = String(dateKey || "").split("-");
+    if (parts.length !== 3) return dateKey || "";
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    const month = months[Number(parts[1]) - 1] || parts[1];
+    return month + " " + Number(parts[2]) + ", " + parts[0];
+  }
+
+  function currentDailyPuzzle() {
+    if (!dailyPuzzle) {
+      dailyPuzzle = WW.createDailyPuzzle(WW.dailyDateKey());
+    }
+    return dailyPuzzle;
+  }
+
+  function dailyNameValue() {
+    const input = document.getElementById("daily-name-input");
+    if (input && input.value.trim()) {
+      return WW.writeDailyName(input.value);
+    }
+    return WW.readDailyName();
+  }
+
+  function leaveDaily() {
+    dailyNet.disconnect();
+    dailyPendingWord = "";
+    dailyLast = null;
+    dailyBoard = { ranks: [], you: null, total: 0, status: "" };
+    state = WW.createGame();
+    const backToLanding = dailyFromLanding;
+    dailyFromLanding = false;
+    flow = "mode";
+    if (backToLanding && landingEl) {
+      onLanding = true;
+      landingEl.hidden = false;
+      if (appEl) appEl.hidden = true;
+      paintLandingDaily();
+      startLandingTypewriter();
+      syncLandingCredit();
+      syncBackgroundInert();
+      if (landingDailyBtn) landingDailyBtn.focus();
+      return;
+    }
+    render();
+  }
+
+  function enterDailyFromLanding() {
+    if (!landingEl || !onLanding) {
+      dailyFromLanding = true;
+      enterDailyIntro();
+      return;
+    }
+    onLanding = false;
+    stopLandingTypewriter();
+    landingEl.hidden = true;
+    if (appEl) appEl.hidden = false;
+    dailyFromLanding = true;
+    enterDailyIntro();
+    syncLandingCredit();
+    syncBackgroundInert();
+  }
+
+  function enterDailyIntro() {
+    dailyPuzzle = WW.createDailyPuzzle(WW.dailyDateKey());
+    flow = "daily-intro";
+    connectDailyNet();
+    render();
+    const input = document.getElementById("daily-name-input");
+    if (input) {
+      if (!input.value) input.value = WW.readDailyName() === "Player" ? "" : WW.readDailyName();
+      input.focus();
+    }
+  }
+
+  function connectDailyNet() {
+    const puzzle = currentDailyPuzzle();
+    dailyNet.connect(puzzle.dateKey, WW.readDailyDeviceId());
+  }
+
+  function onDailyNetMessage(msg) {
+    if (msg.puzzle && msg.puzzle.dateKey === currentDailyPuzzle().dateKey) {
+      dailyPuzzle = WW.publicDailyPuzzle(msg.puzzle);
+    }
+    if (msg.ranks) {
+      dailyBoard = {
+        ranks: msg.ranks,
+        you: msg.you || null,
+        total: msg.total || 0,
+        status: "",
+      };
+    }
+    if (dailyPendingWord && msg.type === "DAILY" && dailyNet.connected()) {
+      const pending = dailyPendingWord;
+      dailyPendingWord = "";
+      dailyNet.submit({
+        deviceId: WW.readDailyDeviceId(),
+        name: dailyNameValue(),
+        word: pending,
+      });
+    }
+    if (flow === "daily-results" || flow === "daily-intro") {
+      render();
+    }
+  }
+
+  function onDailyNetError(err) {
+    dailyBoard.status =
+      (err && err.message) || "Could not reach today’s leaderboard.";
+    if (flow === "daily-results" || flow === "daily-intro") render();
+  }
+
+  function onDailyNetDisconnect() {
+    if (isDailyFlow()) {
+      dailyBoard.status = dailyBoard.status || "Reconnecting to the leaderboard…";
+    }
+  }
+
+  function postDailyScore(word, score) {
+    const puzzle = currentDailyPuzzle();
+    const best = WW.writeDailyBest(puzzle.dateKey, { word: word, score: score });
+    dailyLast = {
+      word: word,
+      score: score,
+      bestWord: best.word,
+      bestScore: best.score,
+      improved: best.word === WW.normalizeDailyWord(word) && best.score === score,
+    };
+    if (dailyNet.connected()) {
+      dailyNet.submit({
+        deviceId: WW.readDailyDeviceId(),
+        name: dailyNameValue(),
+        word: word,
+      });
+    } else {
+      dailyPendingWord = word;
+      connectDailyNet();
+    }
+  }
+
+  function startDailyPlay() {
+    const puzzle = currentDailyPuzzle();
+    const name = dailyNameValue();
+    flow = "daily";
+    state = WW.createDailyPlayState(puzzle, name);
+    connectDailyNet();
+    render();
+    focusLetterInput();
+  }
+
+  function tryAnotherDaily() {
+    const puzzle = currentDailyPuzzle();
+    flow = "daily";
+    state = WW.resetDailyDraft(state, puzzle, dailyNameValue());
+    render();
+    focusLetterInput();
+  }
+
+  function shareDaily() {
+    const puzzle = currentDailyPuzzle();
+    const best = dailyLast || WW.readDailyBest(puzzle.dateKey);
+    const score = best && best.bestScore != null ? best.bestScore : best && best.score;
+    const payload = {
+      title: "worsus daily",
+      text: score
+        ? "I scored " + score + " on the worsus daily for " + formatDailyDate(puzzle.dateKey) + "."
+        : "Play today’s worsus daily.",
+      url: window.location.origin + window.location.pathname + "?daily=1",
+    };
+    const label = document.getElementById("daily-share-label");
+    const done = function (copied) {
+      if (!label) return;
+      label.textContent = copied ? "Copied" : "Shared";
+      window.clearTimeout(shareFlash);
+      shareFlash = window.setTimeout(function () {
+        label.textContent = "Share";
+      }, 1400);
+    };
+    if (navigator.share) {
+      navigator.share(payload)
+        .then(function () {
+          done(false);
+        })
+        .catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(payload.url).then(function () {
+        done(true);
+      });
+    }
+  }
+
+  function dailyFreezeHint(slot) {
+    if (!slot || !slot.letter) return "";
+    return (
+      "Score the highest points with " +
+      slot.letter +
+      " in slot " +
+      (slot.index + 1)
+    );
+  }
+
+  function paintDailyPreviewBoard(preview, puzzle) {
+    const slot = puzzle && puzzle.frozenSlots && puzzle.frozenSlots[0];
+    if (!preview || !slot) return "";
+    const hint = dailyFreezeHint(slot);
+    preview.setAttribute("aria-label", "Frozen letter " + slot.letter + " in slot " + (slot.index + 1));
+    preview.innerHTML = ["", "", "", "", ""]
+      .map(function (_blank, index) {
+        const frozen = index === slot.index;
+        return (
+          '<div class="tile' +
+          (frozen ? " is-frozen" : "") +
+          '" aria-hidden="true">' +
+          (frozen ? escapeHtml(slot.letter) : "") +
+          "</div>"
+        );
+      })
+      .join("");
+    return hint;
+  }
+
+  function paintLandingDaily() {
+    if (!landingDailyBtn) return;
+    const puzzle = currentDailyPuzzle();
+    const dateEl = document.getElementById("landing-daily-date");
+    const hintEl = document.getElementById("landing-daily-hint");
+    const preview = document.getElementById("landing-daily-preview");
+    const hint = paintDailyPreviewBoard(preview, puzzle);
+    if (dateEl) dateEl.textContent = formatDailyDate(puzzle.dateKey);
+    if (hintEl) hintEl.textContent = hint ? hint + "." : "";
+    const best = WW.readDailyBest(puzzle.dateKey);
+    landingDailyBtn.setAttribute(
+      "aria-label",
+      "Today’s daily. " +
+        (hint || "Play today’s puzzle") +
+        (best ? ". Your best is " + best.score + " points" : "")
+    );
+  }
+
+  function paintDailyIntro() {
+    const puzzle = currentDailyPuzzle();
+    const dateEl = document.getElementById("daily-date");
+    const hintEl = document.getElementById("daily-hint");
+    const preview = document.getElementById("daily-preview");
+    const input = document.getElementById("daily-name-input");
+    if (dateEl) dateEl.textContent = formatDailyDate(puzzle.dateKey);
+    const hint = paintDailyPreviewBoard(preview, puzzle);
+    if (hintEl && hint) {
+      hintEl.textContent = hint + ". Same PPL for everyone.";
+    }
+    if (input && !input.value) {
+      const saved = WW.readDailyName();
+      if (saved && saved !== "Player") input.value = saved;
+    }
+  }
+
+  function dailyRankItemHtml(row) {
+    const word = String((row && row.word) || "").toUpperCase();
+    return (
+      '<li class="' +
+      (row && row.you ? "is-you" : "") +
+      '"><span class="place">' +
+      (row && row.rank) +
+      '</span><span class="who">' +
+      escapeHtml(row && row.name) +
+      (row && row.you ? '<span class="lobby-you">YOU</span>' : "") +
+      '</span><span class="word">' +
+      escapeHtml(word) +
+      '</span><span class="pts">' +
+      (row && row.score) +
+      "</span></li>"
+    );
+  }
+
+  function paintDailyScoreLine(lineEl, word, score, puzzle) {
+    if (!word) {
+      lineEl.classList.remove("has-word");
+      lineEl.textContent = "No word yet";
+      return;
+    }
+    const frozen = (puzzle && puzzle.frozenSlots) || [];
+    const pointsMap = (puzzle && puzzle.letterPoints) || letterPointsMap();
+    const tiles = word
+      .split("")
+      .map(function (letter, index) {
+        const isFrozen = frozen.some(function (slot) {
+          return (
+            slot.index === index &&
+            String(slot.letter || "").toUpperCase() === letter
+          );
+        });
+        const value = WW.letterValue(letter, pointsMap);
+        return (
+          '<div class="tile' +
+          (isFrozen ? " is-frozen" : "") +
+          '" aria-hidden="true"><span class="tile-letter">' +
+          escapeHtml(letter) +
+          '</span><span class="key-pts">' +
+          value +
+          "</span></div>"
+        );
+      })
+      .join("");
+    lineEl.classList.add("has-word");
+    lineEl.innerHTML =
+      '<div class="board board-preview" role="img" aria-label="' +
+      escapeHtml(word) +
+      '">' +
+      tiles +
+      '</div><span class="daily-score-pts">' +
+      score +
+      "</span>";
+  }
+
+  function paintDailyResults() {
+    const puzzle = currentDailyPuzzle();
+    const titleEl = document.getElementById("daily-results-title");
+    const kickerEl = document.getElementById("daily-results-kicker");
+    const lineEl = document.getElementById("daily-score-line");
+    const noteEl = document.getElementById("daily-score-note");
+    const listEl = document.getElementById("daily-rank-list");
+    const statusEl = document.getElementById("daily-board-status");
+    if (kickerEl) kickerEl.textContent = formatDailyDate(puzzle.dateKey);
+    const last = dailyLast || {};
+    const best = WW.readDailyBest(puzzle.dateKey);
+    const showWord = (last.word || (best && best.word) || "").toUpperCase();
+    const showScore =
+      last.score != null ? last.score : best ? best.score : 0;
+    if (titleEl) titleEl.textContent = showScore + " points";
+    if (lineEl) {
+      paintDailyScoreLine(lineEl, showWord, showScore, puzzle);
+    }
+    if (noteEl) {
+      if (last.improved && best && last.score === best.score) {
+        noteEl.textContent = "New best today";
+      } else if (best && last.score != null && last.score < best.score) {
+        noteEl.textContent = "Best today is " + best.word.toUpperCase() + " · " + best.score;
+      } else {
+        noteEl.textContent = "Keep trying for a higher score.";
+      }
+    }
+    if (listEl) {
+      const ranks = dailyBoard.ranks || [];
+      if (!ranks.length) {
+        listEl.innerHTML = "";
+      } else {
+        listEl.innerHTML = ranks.map(dailyRankItemHtml).join("");
+        if (
+          dailyBoard.you &&
+          dailyBoard.you.rank > WW.DAILY_LEADERBOARD_SIZE
+        ) {
+          listEl.innerHTML += dailyRankItemHtml(
+            Object.assign({ you: true }, dailyBoard.you)
+          );
+        }
+      }
+    }
+    if (statusEl) {
+      const offline = !dailyNet.connected() && !dailyBoard.ranks.length;
+      const message = dailyBoard.status || (offline ? "Leaderboard unavailable. Your score is saved on this device." : "");
+      statusEl.hidden = !message;
+      statusEl.textContent = message;
+    }
   }
 
   function isMyTurn() {
@@ -1129,6 +1536,10 @@
   }
 
   function dispatch(action) {
+    if (state.daily || flow === "daily") {
+      dispatchDaily(action);
+      return;
+    }
     if (flow === "net" && (!onlineView || onlineView.screen !== "game")) {
       return;
     }
@@ -1205,6 +1616,48 @@
     }
   }
 
+  function dispatchDaily(action) {
+    if (
+      action.type === "TICK" ||
+      action.type === "PAUSE_TIMER" ||
+      action.type === "RESUME_TIMER"
+    ) {
+      return;
+    }
+    if (action.type === "TYPE" || action.type === "BACKSPACE") {
+      if (state.phase !== "playing") return;
+      state = WW.reduce(state, action);
+      state.daily = true;
+      render();
+      return;
+    }
+    if (action.type === "SUBMIT") {
+      const prev = state;
+      state = WW.submitDailyWord(state, currentDailyPuzzle());
+      render();
+      if (state.phase === "revealing" && prev.phase !== "revealing") {
+        const result = state.lastSubmitResult;
+        if (result && result.word) {
+          postDailyScore(result.word, result.points);
+        }
+        armRevealGuard();
+        try {
+          startScoreReveal();
+        } catch (err) {
+          console.error("Score reveal failed", err);
+          dispatchDaily({ type: "REVEAL_DONE" });
+        }
+      }
+      return;
+    }
+    if (action.type === "REVEAL_DONE") {
+      clearRevealGuard();
+      clearScoreReveal();
+      flow = "daily-results";
+      render();
+    }
+  }
+
   function closeStrayAiOverlays() {
     [aiEl, onboardingEl].forEach(function (overlay) {
       if (overlay && !overlay.hidden) overlay.hidden = true;
@@ -1244,7 +1697,7 @@
   }
 
   function queueAi() {
-    if (isOnline()) {
+    if (isOnline() || isDailyFlow()) {
       stopAi();
       return;
     }
@@ -1385,7 +1838,7 @@
 
   function updateRestartButton() {
     if (!restartBtn) return;
-    const idle = state.phase === "setup";
+    const idle = state.phase === "setup" && !isDailyFlow();
     restartBtn.disabled = idle;
     restartBtn.setAttribute("aria-disabled", idle ? "true" : "false");
   }
@@ -1954,7 +2407,12 @@
   }
 
   function paintScoreboard() {
-    if (!state.players.length || state.phase === "setup" || shopOpen) {
+    if (
+      !state.players.length ||
+      state.phase === "setup" ||
+      shopOpen ||
+      isDailyFlow()
+    ) {
       scoreboardEl.classList.remove("is-on");
       scoreboardEl.innerHTML = "";
       return;
@@ -2150,7 +2608,9 @@
             : "Blank freeze — any letters in those slots";
       } else if (state.frozenSlots.length === 1) {
         const slot = state.frozenSlots[0];
-        copy = "Keep " + slot.letter + " in slot " + (slot.index + 1);
+        copy = state.daily
+          ? dailyFreezeHint(slot)
+          : "Keep " + slot.letter + " in slot " + (slot.index + 1);
       } else {
         copy = "Keep " + state.frozenSlots.length + " frozen letters";
       }
@@ -2183,6 +2643,9 @@
   }
 
   function turnKickerCopy() {
+    if (state.daily) {
+      return formatDailyDate(currentDailyPuzzle().dateKey);
+    }
     const player = WW.currentPlayer(state);
     if (state.isSuddenDeath) return "Sudden death";
     if (
@@ -2968,10 +3431,25 @@
     paintPplChart();
     updateRestartButton();
     document.body.classList.toggle("is-online", isOnline());
+    document.body.classList.toggle("is-daily", isDailyFlow());
     if (flow === "mode") {
       showScreen("mode");
       stopAi();
       prevPhase = "mode";
+      return;
+    }
+    if (flow === "daily-intro") {
+      showScreen("daily");
+      paintDailyIntro();
+      stopAi();
+      prevPhase = "daily-intro";
+      return;
+    }
+    if (flow === "daily-results") {
+      showScreen("dailyResults");
+      paintDailyResults();
+      stopAi();
+      prevPhase = "daily-results";
       return;
     }
     if (flow === "online-pick") {
@@ -3234,6 +3712,10 @@
       }
       return;
     }
+    if (flow === "daily-results" && key === "ENTER") {
+      tryAnotherDaily();
+      return;
+    }
     if (isOnline() && !isMyTurn() && state.phase !== "game_over") return;
     if (isAiSeat() && state.phase === "playing") return;
     if (state.phase === "handoff" && (key === "ENTER" || key === " ") && !shopOpen) {
@@ -3269,6 +3751,7 @@
     const now = Date.now();
     if (now - lastTickAt < 40) return;
     lastTickAt = now;
+    if (state.daily) return;
     if (
       (state.phase === "playing" || state.phase === "spinning") &&
       !overlayOpen()
@@ -3291,6 +3774,7 @@
 
   const modeLocalBtn = document.getElementById("mode-local-btn");
   const modeOnlineBtn = document.getElementById("mode-online-btn");
+  const modeDailyBtn = document.getElementById("mode-daily-btn");
   if (modeLocalBtn) {
     modeLocalBtn.addEventListener("click", function () {
       flow = "local";
@@ -3304,6 +3788,38 @@
       flow = "online-pick";
       render();
     });
+  }
+  if (modeDailyBtn) {
+    modeDailyBtn.addEventListener("click", function () {
+      enterDailyIntro();
+    });
+  }
+  const dailyBackBtn = document.getElementById("daily-back-btn");
+  const dailyPlayBtn = document.getElementById("daily-play-btn");
+  const dailyNameInput = document.getElementById("daily-name-input");
+  const dailyAgainBtn = document.getElementById("daily-again-btn");
+  const dailyShareBtn = document.getElementById("daily-share-btn");
+  if (dailyBackBtn) {
+    dailyBackBtn.addEventListener("click", function () {
+      leaveDaily();
+    });
+  }
+  if (dailyPlayBtn) {
+    dailyPlayBtn.addEventListener("click", startDailyPlay);
+  }
+  if (dailyNameInput) {
+    dailyNameInput.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        startDailyPlay();
+      }
+    });
+  }
+  if (dailyAgainBtn) {
+    dailyAgainBtn.addEventListener("click", tryAnotherDaily);
+  }
+  if (dailyShareBtn) {
+    dailyShareBtn.addEventListener("click", shareDaily);
   }
   const onlineHostBtn = document.getElementById("online-host-btn");
   const onlineJoinBtn = document.getElementById("online-join-btn");
@@ -3709,9 +4225,11 @@
     if (state.phase === "setup") return;
     const lede = document.getElementById("restart-lede");
     if (lede) {
-      lede.textContent = isOnline()
-        ? "This ends the match for everyone and returns the table to the lobby."
-        : "This wipes the current scores and returns everyone to setup.";
+      lede.textContent = isDailyFlow()
+        ? "This leaves today’s daily and returns you to mode select."
+        : isOnline()
+          ? "This ends the match for everyone and returns the table to the lobby."
+          : "This wipes the current scores and returns everyone to setup.";
     }
     openOverlay(restartEl, restartBtn);
   });
@@ -3722,6 +4240,10 @@
 
   document.getElementById("restart-confirm-btn").addEventListener("click", function () {
     closeOverlay(restartEl);
+    if (isDailyFlow()) {
+      leaveDaily();
+      return;
+    }
     if (isOnline()) {
       if (onlineView.you && onlineView.you.isHost) net.send({ type: "RESET" });
       else leaveOnline();
@@ -3749,6 +4271,10 @@
 
   if (landingReadyBtn) {
     landingReadyBtn.addEventListener("click", enterGameFromLanding);
+  }
+
+  if (landingDailyBtn) {
+    landingDailyBtn.addEventListener("click", enterDailyFromLanding);
   }
 
   keyboardEl.addEventListener("pointerdown", function (event) {
@@ -3914,11 +4440,17 @@
   }
 
   render();
+  paintLandingDaily();
   syncBackgroundInert();
   syncIndexability();
   syncLandingCredit();
 
-  if (!demoKey && (params.get("play") === "1" || params.get("ready") === "1")) {
+  if (
+    !demoKey &&
+    (params.get("play") === "1" ||
+      params.get("ready") === "1" ||
+      params.get("daily") === "1")
+  ) {
     enterGameFromLanding();
     if (window.history && window.history.replaceState) {
       const url = new URL(window.location.href);

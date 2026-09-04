@@ -5,9 +5,14 @@ import "../js/shop.js";
 import "../js/engine.js";
 import "../js/ai.js";
 import "../js/room.js";
+import DailyServer from "./daily.js";
 
 function WW() {
   return globalThis.WordWars;
+}
+
+function isDailyRoom(id) {
+  return Boolean(WW().dateKeyFromRoomId(id));
 }
 
 export default class TableServer {
@@ -16,6 +21,7 @@ export default class TableServer {
   constructor(room) {
     this.room = room;
     this.table = null;
+    this.daily = isDailyRoom(room.id) ? new DailyServer(room) : null;
   }
 
   ensureTable() {
@@ -39,6 +45,7 @@ export default class TableServer {
   }
 
   onConnect(conn) {
+    if (this.daily) return this.daily.onConnect(conn);
     conn.send(
       JSON.stringify({
         type: "HELLO",
@@ -48,6 +55,7 @@ export default class TableServer {
   }
 
   onMessage(message, sender) {
+    if (this.daily) return this.daily.onMessage(message, sender);
     let msg = message;
     if (typeof message === "string") {
       try {
@@ -67,6 +75,7 @@ export default class TableServer {
   }
 
   onClose(conn) {
+    if (this.daily) return;
     if (this.table) this.table.handleClose(conn.id);
   }
 }
