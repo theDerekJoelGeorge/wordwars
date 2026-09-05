@@ -1,7 +1,7 @@
 /**
  * Downloads the raw inputs used by tools/filter-words.js into tools/data,
- * which is gitignored. Only the filtered result (tools/word-source.txt) and
- * the generated js/words.js are committed.
+ * which is gitignored. The filtered result (tools/word-source.txt) and the
+ * generated js/words.js / js/meanings.js are committed.
  */
 const fs = require("fs");
 const path = require("path");
@@ -44,3 +44,19 @@ execFileSync("tar", ["-xzf", path.join(dataDir, tarball), "-C", dataDir], {
   stdio: "inherit",
 });
 console.log("scowl: extracted to tools/data/package");
+
+const oewnDir = path.join(dataDir, "oewn");
+const oewnZip = path.join(oewnDir, "english-wordnet-2025.zip");
+fs.mkdirSync(oewnDir, { recursive: true });
+execFileSync(
+  "curl",
+  [
+    "-sL",
+    "-o",
+    oewnZip,
+    "https://en-word.net/static/english-wordnet-2025.zip",
+  ],
+  { stdio: "inherit" }
+);
+execFileSync("tar", ["-xf", oewnZip, "-C", oewnDir], { stdio: "inherit" });
+console.log("oewn: extracted to tools/data/oewn/oewn2025");

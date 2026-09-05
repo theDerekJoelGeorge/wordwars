@@ -57,7 +57,6 @@ afire
 afoot
 afoul
 after
-aftos
 again
 agape
 agate
@@ -4852,7 +4851,6 @@ vents
 venue
 verbs
 verge
-versa
 verse
 verso
 verve

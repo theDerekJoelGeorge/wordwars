@@ -12,6 +12,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const { readLines, dropDeadEnds } = require("./word-utils");
 
 const toolsDir = __dirname;
 const dataDir = path.join(toolsDir, "data");
@@ -20,14 +21,6 @@ const scowlDir = path.join(dataDir, "package");
 const SCOWL_DIALECTS = ["english", "american", "british", "canadian", "australian"];
 const SCOWL_SIZES = [10, 20, 35, 40, 50, 55, 60];
 const FIVE_LETTER = /^[a-z]{5}$/;
-
-function readLines(file) {
-  return fs
-    .readFileSync(file, "utf8")
-    .split(/\r?\n/)
-    .map((line) => line.trim().toLowerCase())
-    .filter(Boolean);
-}
 
 function loadSpellCheckerWords() {
   const words = new Set();
@@ -62,34 +55,6 @@ const spellCheck = loadSpellCheckerWords();
 let kept = [
   ...new Set(guesses.filter((word) => spellCheck.has(word) || answers.has(word))),
 ].sort();
-
-/**
- * A turn freezes a slot from the word just played, and that word is then spent.
- * If a word is the only one with letter L at position P, freezing that slot
- * leaves the next player nothing to type. Thinning the list can create these
- * dead ends (it made "burqa" the sole word with "q" at position 3), so drop
- * them. Removing a word can strand another, hence the loop.
- */
-function dropDeadEnds(list) {
-  let words = list;
-  for (;;) {
-    const counts = new Map();
-    for (const word of words) {
-      for (let i = 0; i < 5; i += 1) {
-        const key = i + word[i];
-        counts.set(key, (counts.get(key) || 0) + 1);
-      }
-    }
-    const doomed = new Set(
-      words.filter((word) =>
-        [0, 1, 2, 3, 4].some((i) => counts.get(i + word[i]) === 1)
-      )
-    );
-    if (!doomed.size) return words;
-    console.log("removing dead-end words:", [...doomed].join(" "));
-    words = words.filter((word) => !doomed.has(word));
-  }
-}
 
 kept = dropDeadEnds(kept);
 

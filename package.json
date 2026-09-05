@@ -2,7 +2,8 @@
   "name": "wordwars",
   "private": true,
   "scripts": {
-    "test": "node --test tests/engine.test.js tests/room.test.js tests/daily.test.js",
+    "test": "node --test tests/engine.test.js tests/room.test.js tests/daily.test.js tests/dictionary.test.js",
+    "meanings": "node tools/build-meanings.js",
     "party": "partykit dev",
     "party:deploy": "partykit deploy"
   },

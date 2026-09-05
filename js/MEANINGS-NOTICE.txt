@@ -1,0 +1,15 @@
+Word meanings in js/meanings.js are short glosses adapted for worsus.
+
+Open English WordNet 2025
+Copyright the Open English Wordnet team
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://en-word.net/
+https://creativecommons.org/licenses/by/4.0/
+
+Wiktionary
+License: Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+https://en.wiktionary.org/
+https://creativecommons.org/licenses/by-sa/3.0/
+
+The generated meanings file is a derived work of those sources and should
+keep this notice when copied or redistributed.

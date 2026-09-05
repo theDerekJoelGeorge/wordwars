@@ -76,6 +76,9 @@
   const shopPointsGainEl = document.getElementById("shop-points-gain");
   const handoffBoardEl = document.getElementById("handoff-board");
   const handoffWordEl = document.getElementById("handoff-word");
+  const handoffMeaningEl = document.getElementById("handoff-meaning");
+  const handoffMeaningSourceEl = document.getElementById("handoff-meaning-source");
+  const handoffMeaningBlockEl = document.getElementById("handoff-meaning-block");
   const handoffEffectsEl = document.getElementById("handoff-effects");
   const handoffEffectListEl = document.getElementById("handoff-effect-list");
   const playEffectsEl = document.getElementById("play-effects");
@@ -2785,6 +2788,10 @@
       handoffWordEl.hidden = true;
       handoffBoardEl.innerHTML = "";
       handoffBoardEl.removeAttribute("aria-label");
+      handoffBoardEl.setAttribute("aria-labelledby", "last-word-label");
+      if (handoffMeaningBlockEl) handoffMeaningBlockEl.hidden = true;
+      if (handoffMeaningEl) handoffMeaningEl.textContent = "";
+      paintMeaningSource("");
     } else {
       handoffWordEl.hidden = false;
       handoffBoardEl.setAttribute(
@@ -2798,9 +2805,43 @@
           return '<div class="tile" aria-hidden="true">' + escapeHtml(letter) + "</div>";
         })
         .join("");
+      const gloss = WW.meaning(state.lastWord);
+      if (handoffMeaningEl) {
+        if (gloss) {
+          if (handoffMeaningBlockEl) handoffMeaningBlockEl.hidden = false;
+          handoffMeaningEl.textContent = gloss;
+          paintMeaningSource(state.lastWord);
+          handoffBoardEl.setAttribute(
+            "aria-labelledby",
+            "last-word-label handoff-meaning"
+          );
+        } else {
+          if (handoffMeaningBlockEl) handoffMeaningBlockEl.hidden = true;
+          handoffMeaningEl.textContent = "";
+          paintMeaningSource("");
+          handoffBoardEl.setAttribute("aria-labelledby", "last-word-label");
+        }
+      }
     }
     paintEffects(handoffEffectsEl, handoffEffectListEl);
     paintShop();
+  }
+
+  function paintMeaningSource(word) {
+    if (!handoffMeaningSourceEl) return;
+    while (handoffMeaningSourceEl.firstChild) {
+      handoffMeaningSourceEl.removeChild(handoffMeaningSourceEl.firstChild);
+    }
+    const source = WW.meaningSource(word);
+    const url = WW.meaningSourceUrl(word);
+    if (!source || !url) return;
+    handoffMeaningSourceEl.appendChild(document.createTextNode("Source: "));
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = source;
+    handoffMeaningSourceEl.appendChild(link);
   }
 
   function canBuySomething(player) {

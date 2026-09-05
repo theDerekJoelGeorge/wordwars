@@ -1430,6 +1430,50 @@ img {
 .last-word {
   display: grid;
   gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+  justify-items: start;
+}
+
+.handoff-meaning-block {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.handoff-meaning {
+  margin: 0;
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--muted);
+  text-align: left;
+  overflow-wrap: break-word;
+}
+
+.handoff-meaning-source {
+  margin: 0.15rem 0 0;
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--muted);
+  text-align: left;
+  text-transform: lowercase;
+  letter-spacing: 0;
+}
+
+.handoff-meaning-source a {
+  color: inherit;
+  text-underline-offset: 2px;
+}
+
+.handoff-meaning-source a:hover,
+.handoff-meaning-source a:focus-visible {
+  color: var(--ink);
 }
 
 .board-wrap {
@@ -3851,6 +3895,18 @@ body.about-page::-webkit-scrollbar {
 
 .about-copy p:last-child {
   margin-bottom: 0;
+}
+
+.about-attribution {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-align: left;
+}
+
+.about-attribution a {
+  color: inherit;
 }
 
 .about-main h2 {
