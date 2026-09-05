@@ -613,6 +613,38 @@
     return dailyPuzzle;
   }
 
+  function refreshDailyPuzzleIfNeeded() {
+    const today = WW.dailyDateKey();
+    if (dailyPuzzle && dailyPuzzle.dateKey === today) return false;
+    dailyPuzzle = WW.createDailyPuzzle(today);
+    dailyLast = null;
+    dailyBoard = { ranks: [], you: null, total: 0, status: "" };
+    dailyPendingWord = "";
+    return true;
+  }
+
+  let dailyRolloverTimer = 0;
+
+  function onDailyRollover() {
+    if (flow === "daily") return;
+    const changed = refreshDailyPuzzleIfNeeded();
+    if (onLanding) paintLandingDaily();
+    else if (changed && isDailyFlow()) {
+      connectDailyNet();
+      render();
+    }
+  }
+
+  function armDailyRollover() {
+    if (dailyRolloverTimer) window.clearTimeout(dailyRolloverTimer);
+    const wait = Math.min(WW.msUntilNextDaily(), 60 * 60 * 1000);
+    dailyRolloverTimer = window.setTimeout(function () {
+      dailyRolloverTimer = 0;
+      onDailyRollover();
+      armDailyRollover();
+    }, wait);
+  }
+
   function dailyNameValue() {
     const input = document.getElementById("daily-name-input");
     if (input && input.value.trim()) {
@@ -661,6 +693,7 @@
   }
 
   function enterDailyIntro() {
+    refreshDailyPuzzleIfNeeded();
     dailyPuzzle = WW.createDailyPuzzle(WW.dailyDateKey());
     flow = "daily-intro";
     connectDailyNet();
@@ -748,6 +781,7 @@
   }
 
   function tryAnotherDaily() {
+    refreshDailyPuzzleIfNeeded();
     const puzzle = currentDailyPuzzle();
     flow = "daily";
     state = WW.resetDailyDraft(state, puzzle, dailyNameValue());
@@ -822,6 +856,7 @@
 
   function paintLandingDaily() {
     if (!landingDailyBtn) return;
+    if (flow !== "daily") refreshDailyPuzzleIfNeeded();
     const puzzle = currentDailyPuzzle();
     const dateEl = document.getElementById("landing-daily-date");
     const hintEl = document.getElementById("landing-daily-hint");
@@ -4441,6 +4476,10 @@
 
   render();
   paintLandingDaily();
+  armDailyRollover();
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") onDailyRollover();
+  });
   syncBackgroundInert();
   syncIndexability();
   syncLandingCredit();

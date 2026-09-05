@@ -3514,6 +3514,9 @@ body.ai-turn .keyboard {
 
 .landing-daily .daily-preview {
   margin-top: 4px;
+  width: 100%;
+  justify-content: center;
+  justify-items: center;
 }
 
 .landing-daily-hint {
@@ -3997,6 +4000,9 @@ body.about-page::-webkit-scrollbar {
   .landing-daily .board-preview {
     grid-template-columns: repeat(5, 38px);
     gap: 5px;
+    width: 100%;
+    justify-content: center;
+    justify-items: center;
   }
 
   .landing-daily .board-preview .tile {
@@ -4447,6 +4453,7 @@ body.is-daily #screen-play.is-active {
 
 .daily-preview {
   margin-top: 28px;
+  justify-content: center;
 }
 
 .daily-name-label {

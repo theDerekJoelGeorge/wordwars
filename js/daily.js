@@ -46,12 +46,18 @@
   WW.dailyDateKey = function dailyDateKey(date) {
     const d = date instanceof Date ? date : new Date();
     return (
-      d.getUTCFullYear() +
+      d.getFullYear() +
       "-" +
-      pad2(d.getUTCMonth() + 1) +
+      pad2(d.getMonth() + 1) +
       "-" +
-      pad2(d.getUTCDate())
+      pad2(d.getDate())
     );
+  };
+
+  WW.msUntilNextDaily = function msUntilNextDaily(date) {
+    const d = date instanceof Date ? date : new Date();
+    const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+    return Math.max(1, next.getTime() - d.getTime());
   };
 
   WW.isDailyDateKey = function isDailyDateKey(value) {

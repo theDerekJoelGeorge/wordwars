@@ -8,7 +8,16 @@ require("../js/shop.js");
 require("../js/engine.js");
 const WW = require("../js/daily.js");
 
-test("the same UTC date always builds the same daily puzzle", () => {
+test("dailyDateKey follows the device local calendar day", () => {
+  const morning = new Date(2026, 8, 5, 0, 15, 0);
+  const night = new Date(2026, 8, 5, 23, 59, 0);
+  assert.equal(WW.dailyDateKey(morning), "2026-09-05");
+  assert.equal(WW.dailyDateKey(night), "2026-09-05");
+  assert.ok(WW.msUntilNextDaily(morning) > 0);
+  assert.ok(WW.msUntilNextDaily(night) <= 60 * 1000);
+});
+
+test("the same local date always builds the same daily puzzle", () => {
   const first = WW.createDailyPuzzle("2026-09-05");
   const second = WW.createDailyPuzzle("2026-09-05");
   assert.equal(first.dateKey, "2026-09-05");
