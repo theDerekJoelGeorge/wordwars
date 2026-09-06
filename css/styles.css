@@ -4503,10 +4503,6 @@ body.is-daily #screen-play.is-active {
   padding-top: var(--page-block-top);
 }
 
-#mode-daily-btn {
-  flex: 1 1 96px;
-}
-
 .daily-preview {
   margin-top: 28px;
   justify-content: center;

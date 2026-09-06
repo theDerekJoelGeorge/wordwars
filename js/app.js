@@ -3850,7 +3850,6 @@
 
   const modeLocalBtn = document.getElementById("mode-local-btn");
   const modeOnlineBtn = document.getElementById("mode-online-btn");
-  const modeDailyBtn = document.getElementById("mode-daily-btn");
   if (modeLocalBtn) {
     modeLocalBtn.addEventListener("click", function () {
       flow = "local";
@@ -3863,11 +3862,6 @@
     modeOnlineBtn.addEventListener("click", function () {
       flow = "online-pick";
       render();
-    });
-  }
-  if (modeDailyBtn) {
-    modeDailyBtn.addEventListener("click", function () {
-      enterDailyIntro();
     });
   }
   const dailyBackBtn = document.getElementById("daily-back-btn");
