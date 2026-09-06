@@ -60,7 +60,7 @@ test("daily word must be real and keep the frozen letter", () => {
   assert.equal(WW.validateDailyWord("cat", puzzle).reason, "incomplete");
 });
 
-test("leaderboard keeps only a better score and earlier ties", () => {
+test("leaderboard keeps only the first entry per device", () => {
   let entries = {};
   const first = WW.applyDailyBest(entries, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", {
     name: "Ada",
@@ -80,23 +80,14 @@ test("leaderboard keeps only a better score and earlier ties", () => {
   assert.equal(worse.improved, false);
   assert.equal(worse.entries.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.word, "crane");
 
-  const tie = WW.applyDailyBest(entries, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", {
-    name: "Ada",
-    word: "crave",
-    score: 12,
-    at: 300,
-  });
-  assert.equal(tie.improved, false);
-  assert.equal(tie.entries.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.word, "crane");
-
   const better = WW.applyDailyBest(entries, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", {
     name: "Ada",
     word: "crazy",
     score: 20,
     at: 400,
   });
-  assert.equal(better.improved, true);
-  assert.equal(better.entries.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.word, "crazy");
+  assert.equal(better.improved, false);
+  assert.equal(better.entries.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.word, "crane");
 });
 
 test("ranks sort by score then time and keep you outside the top 25", () => {
@@ -123,6 +114,39 @@ test("ranks sort by score then time and keep you outside the top 25", () => {
     }),
     false
   );
+});
+
+test("tied scores share the same leaderboard place", () => {
+  const entries = {
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: {
+      name: "Ada",
+      word: "crane",
+      score: 20,
+      at: 100,
+    },
+    bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb: {
+      name: "Bea",
+      word: "crate",
+      score: 20,
+      at: 200,
+    },
+    cccccccccccccccccccccccccccccccc: {
+      name: "Cyd",
+      word: "cable",
+      score: 10,
+      at: 300,
+    },
+  };
+  const board = WW.rankDailyEntries(
+    entries,
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  );
+  assert.equal(board.ranks[0].rank, 1);
+  assert.equal(board.ranks[1].rank, 1);
+  assert.equal(board.ranks[2].rank, 3);
+  assert.equal(board.you.rank, 1);
+  assert.equal(board.ranks[0].name, "Ada");
+  assert.equal(board.ranks[1].name, "Bea");
 });
 
 test("daily play state scores a fitting word", () => {

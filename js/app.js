@@ -698,6 +698,20 @@
   function enterDailyIntro() {
     refreshDailyPuzzleIfNeeded();
     dailyPuzzle = WW.createDailyPuzzle(WW.dailyDateKey());
+    const played = WW.readDailyBest(dailyPuzzle.dateKey);
+    if (played) {
+      dailyLast = {
+        word: played.word,
+        score: played.score,
+        bestWord: played.word,
+        bestScore: played.score,
+        improved: false,
+      };
+      flow = "daily-results";
+      connectDailyNet();
+      render();
+      return;
+    }
     flow = "daily-intro";
     connectDailyNet();
     render();
@@ -775,6 +789,10 @@
 
   function startDailyPlay() {
     const puzzle = currentDailyPuzzle();
+    if (WW.readDailyBest(puzzle.dateKey)) {
+      enterDailyIntro();
+      return;
+    }
     const name = dailyNameValue();
     flow = "daily";
     state = WW.createDailyPlayState(puzzle, name);
@@ -783,25 +801,29 @@
     focusLetterInput();
   }
 
-  function tryAnotherDaily() {
-    refreshDailyPuzzleIfNeeded();
-    const puzzle = currentDailyPuzzle();
-    flow = "daily";
-    state = WW.resetDailyDraft(state, puzzle, dailyNameValue());
-    render();
-    focusLetterInput();
+  function leaveDailyResults() {
+    leaveDaily();
   }
 
   function shareDaily() {
     const puzzle = currentDailyPuzzle();
     const best = dailyLast || WW.readDailyBest(puzzle.dateKey);
-    const score = best && best.bestScore != null ? best.bestScore : best && best.score;
+    const score =
+      best && best.bestScore != null
+        ? best.bestScore
+        : best && best.score;
+    const url =
+      window.location.origin + window.location.pathname + "?daily=1";
+    const text = score
+      ? "My word scored " +
+        score +
+        " points on worsus today. Try to beat my score: " +
+        url
+      : "Play today’s worsus daily: " + url;
     const payload = {
       title: "worsus daily",
-      text: score
-        ? "I scored " + score + " on the worsus daily for " + formatDailyDate(puzzle.dateKey) + "."
-        : "Play today’s worsus daily.",
-      url: window.location.origin + window.location.pathname + "?daily=1",
+      text: text,
+      url: url,
     };
     const label = document.getElementById("daily-share-label");
     const done = function (copied) {
@@ -813,7 +835,8 @@
       }, 1400);
     };
     if (navigator.share) {
-      navigator.share(payload)
+      navigator
+        .share(payload)
         .then(function () {
           done(false);
         })
@@ -821,7 +844,7 @@
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(payload.url).then(function () {
+      navigator.clipboard.writeText(text).then(function () {
         done(true);
       });
     }
@@ -837,19 +860,29 @@
     );
   }
 
-  function paintDailyPreviewBoard(preview, puzzle) {
+  function paintDailyPreviewBoard(preview, puzzle, playedWord) {
     const slot = puzzle && puzzle.frozenSlots && puzzle.frozenSlots[0];
     if (!preview || !slot) return "";
     const hint = dailyFreezeHint(slot);
-    preview.setAttribute("aria-label", "Frozen letter " + slot.letter + " in slot " + (slot.index + 1));
+    const word = String(playedWord || "")
+      .toUpperCase()
+      .replace(/[^A-Z]/g, "")
+      .slice(0, WW.WORD_LENGTH);
+    preview.setAttribute(
+      "aria-label",
+      word
+        ? "Your word " + word
+        : "Frozen letter " + slot.letter + " in slot " + (slot.index + 1)
+    );
     preview.innerHTML = ["", "", "", "", ""]
       .map(function (_blank, index) {
         const frozen = index === slot.index;
+        const letter = word ? word.charAt(index) : frozen ? slot.letter : "";
         return (
           '<div class="tile' +
           (frozen ? " is-frozen" : "") +
           '" aria-hidden="true">' +
-          (frozen ? escapeHtml(slot.letter) : "") +
+          escapeHtml(letter) +
           "</div>"
         );
       })
@@ -864,15 +897,33 @@
     const dateEl = document.getElementById("landing-daily-date");
     const hintEl = document.getElementById("landing-daily-hint");
     const preview = document.getElementById("landing-daily-preview");
-    const hint = paintDailyPreviewBoard(preview, puzzle);
-    if (dateEl) dateEl.textContent = formatDailyDate(puzzle.dateKey);
-    if (hintEl) hintEl.textContent = hint ? hint + "." : "";
     const best = WW.readDailyBest(puzzle.dateKey);
+    const playedWord = best && best.word ? String(best.word).toUpperCase() : "";
+    const hint = paintDailyPreviewBoard(preview, puzzle, playedWord);
+    if (dateEl) dateEl.textContent = formatDailyDate(puzzle.dateKey);
+    if (hintEl) {
+      if (playedWord) {
+        hintEl.textContent =
+          playedWord +
+          (best.score != null ? " · " + best.score + " points" : "");
+      } else {
+        hintEl.textContent = hint ? hint + "." : "";
+      }
+    }
+    const cta = landingDailyBtn.querySelector(".landing-daily-cta span");
+    if (cta) {
+      cta.textContent = playedWord
+        ? "View leaderboard"
+        : "Play today’s puzzle";
+    }
     landingDailyBtn.setAttribute(
       "aria-label",
-      "Today’s daily. " +
-        (hint || "Play today’s puzzle") +
-        (best ? ". Your best is " + best.score + " points" : "")
+      playedWord
+        ? "Today’s daily. Your word " +
+            playedWord +
+            (best.score != null ? " scored " + best.score + " points. " : ". ") +
+            "View leaderboard"
+        : "Today’s daily. " + (hint || "Play today’s puzzle")
     );
   }
 
@@ -885,7 +936,7 @@
     if (dateEl) dateEl.textContent = formatDailyDate(puzzle.dateKey);
     const hint = paintDailyPreviewBoard(preview, puzzle);
     if (hintEl && hint) {
-      hintEl.textContent = hint + ". Same PPL for everyone.";
+      hintEl.textContent = hint + ". One try per device. Same PPL for everyone.";
     }
     if (input && !input.value) {
       const saved = WW.readDailyName();
@@ -970,13 +1021,7 @@
       paintDailyScoreLine(lineEl, showWord, showScore, puzzle);
     }
     if (noteEl) {
-      if (last.improved && best && last.score === best.score) {
-        noteEl.textContent = "New best today";
-      } else if (best && last.score != null && last.score < best.score) {
-        noteEl.textContent = "Best today is " + best.word.toUpperCase() + " · " + best.score;
-      } else {
-        noteEl.textContent = "Keep trying for a higher score.";
-      }
+      noteEl.textContent = "One word per device today.";
     }
     if (listEl) {
       const ranks = dailyBoard.ranks || [];
@@ -3789,7 +3834,7 @@
       return;
     }
     if (flow === "daily-results" && key === "ENTER") {
-      tryAnotherDaily();
+      leaveDailyResults();
       return;
     }
     if (isOnline() && !isMyTurn() && state.phase !== "game_over") return;
@@ -3867,7 +3912,7 @@
   const dailyBackBtn = document.getElementById("daily-back-btn");
   const dailyPlayBtn = document.getElementById("daily-play-btn");
   const dailyNameInput = document.getElementById("daily-name-input");
-  const dailyAgainBtn = document.getElementById("daily-again-btn");
+  const dailyDoneBtn = document.getElementById("daily-done-btn");
   const dailyShareBtn = document.getElementById("daily-share-btn");
   if (dailyBackBtn) {
     dailyBackBtn.addEventListener("click", function () {
@@ -3885,8 +3930,8 @@
       }
     });
   }
-  if (dailyAgainBtn) {
-    dailyAgainBtn.addEventListener("click", tryAnotherDaily);
+  if (dailyDoneBtn) {
+    dailyDoneBtn.addEventListener("click", leaveDailyResults);
   }
   if (dailyShareBtn) {
     dailyShareBtn.addEventListener("click", shareDaily);

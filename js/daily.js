@@ -197,8 +197,12 @@
     });
     const youId = WW.normalizeDailyDeviceId(deviceId);
     let you = null;
+    let place = 0;
     rows.forEach(function (row, index) {
-      row.rank = index + 1;
+      if (index === 0 || row.score !== rows[index - 1].score) {
+        place = index + 1;
+      }
+      row.rank = place;
       if (youId && row.deviceId === youId) {
         you = {
           rank: row.rank,
@@ -238,16 +242,10 @@
     };
     const prev = copy[id];
     if (prev) {
-      const prevScore = Number(prev.score) || 0;
-      if (incoming.score < prevScore) {
-        return { entries: copy, improved: false, kept: true };
-      }
-      if (incoming.score === prevScore) {
-        return { entries: copy, improved: false, kept: true };
-      }
+      return { entries: copy, improved: false, kept: true };
     }
     copy[id] = incoming;
-    return { entries: copy, improved: true, kept: Boolean(prev) };
+    return { entries: copy, improved: true, kept: false };
   };
 
   WW.createDailyPlayState = function createDailyPlayState(puzzle, name) {
@@ -402,12 +400,12 @@
   };
 
   WW.writeDailyBest = function writeDailyBest(dateKey, entry) {
+    const prev = WW.readDailyBest(dateKey);
+    if (prev) return prev;
     const next = {
       word: WW.normalizeDailyWord(entry && entry.word),
       score: Number(entry && entry.score) || 0,
     };
-    const prev = WW.readDailyBest(dateKey);
-    if (prev && prev.score >= next.score) return prev;
     try {
       if (root.localStorage) {
         root.localStorage.setItem(

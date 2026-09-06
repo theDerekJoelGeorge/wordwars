@@ -227,7 +227,7 @@
               aria-label="Today’s frozen letter"
             ></div>
             <p class="setup-hint" id="daily-hint">
-              Find the highest-scoring five-letter word that keeps the frozen letter.
+              One five-letter word. One try per device. Keep the frozen letter.
             </p>
             <label class="daily-name-label" for="daily-name-input">Nickname</label>
             <input
@@ -262,14 +262,14 @@
           <ol class="rank-list" id="daily-rank-list" aria-label="Daily leaderboard"></ol>
           <p class="setup-hint" id="daily-board-status" hidden></p>
           <div class="actions">
-            <button type="button" class="btn btn-wide" id="daily-again-btn">
-              Try another
-            </button>
-            <button type="button" class="btn btn-amber btn-wide" id="daily-share-btn">
+            <button type="button" class="btn btn-wide" id="daily-share-btn">
               <span id="daily-share-label" aria-live="polite">Share</span>
               <span class="icon icon-share" aria-hidden="true">
                 <img src="assets/share.svg" alt="" width="16" height="14" />
               </span>
+            </button>
+            <button type="button" class="btn btn-wide" id="daily-done-btn">
+              Done
             </button>
           </div>
         </section>
@@ -879,11 +879,11 @@
     <script src="js/dictionary.js?v=source-link"></script>
     <script src="js/shop.js?v=mystery-tips"></script>
     <script src="js/engine.js?v=mystery-pool"></script>
-    <script src="js/daily.js?v=daily-local"></script>
+    <script src="js/daily.js?v=daily-ties"></script>
     <script src="js/ai.js?v=mystery-pool"></script>
     <script src="js/room.js?v=mystery-pool"></script>
     <script src="js/net.js?v=daily-room"></script>
     <script src="js/demo.js?v=hostile-miss"></script>
-    <script src="js/app.js?v=mode-no-daily"></script>
+    <script src="js/app.js?v=landing-played-word"></script>
   </body>
 </html>
