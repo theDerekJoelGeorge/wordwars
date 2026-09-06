@@ -149,6 +149,19 @@ test("tied scores share the same leaderboard place", () => {
   assert.equal(board.ranks[1].name, "Bea");
 });
 
+test("daily nicknames need at least three characters", () => {
+  assert.equal(WW.validateDailyName("").ok, false);
+  assert.equal(WW.validateDailyName("A").ok, false);
+  assert.equal(WW.validateDailyName("Bo").ok, false);
+  assert.equal(
+    WW.validateDailyName("x").message,
+    WW.DAILY_NAME_TOO_SHORT
+  );
+  assert.equal(WW.validateDailyName("Ada").ok, true);
+  assert.equal(WW.validateDailyName("Ada").name, "Ada");
+  assert.equal(WW.validateDailyName("  Max  ").name, "Max");
+});
+
 test("daily play state scores a fitting word", () => {
   const puzzle = WW.createDailyPuzzle("2026-09-05");
   const slot = puzzle.frozenSlots[0];

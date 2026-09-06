@@ -5,7 +5,10 @@
   WW.DAILY_MIN_FITS = 20;
   WW.DAILY_MAX_FITS = 800;
   WW.DAILY_LEADERBOARD_SIZE = 25;
+  WW.DAILY_NAME_MIN = 3;
   WW.DAILY_NAME_MAX = 24;
+  WW.DAILY_NAME_TOO_SHORT =
+    "Come on, I know that you can get more creative with your name !";
   WW.DAILY_DEVICE_RE = /^[a-f0-9]{32}$/i;
   WW.DAILY_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -145,6 +148,22 @@
       .trim()
       .slice(0, WW.DAILY_NAME_MAX);
     return name || "Player";
+  };
+
+  WW.validateDailyName = function validateDailyName(value) {
+    const name = String(value || "")
+      .replace(/[\u0000-\u001f\u007f]/g, "")
+      .trim()
+      .slice(0, WW.DAILY_NAME_MAX);
+    if (name.length < WW.DAILY_NAME_MIN) {
+      return {
+        ok: false,
+        reason: "name",
+        name: name,
+        message: WW.DAILY_NAME_TOO_SHORT,
+      };
+    }
+    return { ok: true, name: name };
   };
 
   WW.normalizeDailyDeviceId = function normalizeDailyDeviceId(value) {

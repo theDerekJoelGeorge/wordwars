@@ -63,7 +63,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=daily-results-pin" />
+    <link rel="stylesheet" href="css/styles.css?v=daily-sticky-actions" />
     <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
   </head>
   <body>
@@ -235,9 +235,12 @@
               class="daily-name-input"
               type="text"
               maxlength="24"
+              minlength="3"
               autocomplete="nickname"
               spellcheck="false"
+              aria-describedby="daily-name-error"
             />
+            <p class="daily-name-error" id="daily-name-error" role="alert" hidden></p>
             <div class="setup-actions">
               <button type="button" class="btn btn-amber btn-begin" id="daily-play-btn">
                 PLAY
@@ -261,15 +264,15 @@
           <p class="setup-hint" id="daily-score-note"></p>
           <ol class="rank-list" id="daily-rank-list" aria-label="Daily leaderboard"></ol>
           <p class="setup-hint" id="daily-board-status" hidden></p>
-          <div class="actions">
+          <div class="actions daily-results-actions">
+            <button type="button" class="btn btn-wide" id="daily-done-btn">
+              Done
+            </button>
             <button type="button" class="btn btn-wide" id="daily-share-btn">
               <span id="daily-share-label" aria-live="polite">Share</span>
               <span class="icon icon-share" aria-hidden="true">
                 <img src="assets/share.svg" alt="" width="16" height="14" />
               </span>
-            </button>
-            <button type="button" class="btn btn-wide" id="daily-done-btn">
-              Done
             </button>
           </div>
         </section>
@@ -879,11 +882,11 @@
     <script src="js/dictionary.js?v=source-link"></script>
     <script src="js/shop.js?v=mystery-tips"></script>
     <script src="js/engine.js?v=mystery-pool"></script>
-    <script src="js/daily.js?v=daily-ties"></script>
+    <script src="js/daily.js?v=daily-name-min"></script>
     <script src="js/ai.js?v=mystery-pool"></script>
     <script src="js/room.js?v=mystery-pool"></script>
     <script src="js/net.js?v=daily-room"></script>
     <script src="js/demo.js?v=hostile-miss"></script>
-    <script src="js/app.js?v=daily-results-pin"></script>
+    <script src="js/app.js?v=daily-name-min"></script>
   </body>
 </html>

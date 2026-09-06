@@ -715,6 +715,7 @@
     flow = "daily-intro";
     connectDailyNet();
     render();
+    clearDailyNameError();
     const input = document.getElementById("daily-name-input");
     if (input) {
       if (!input.value) input.value = WW.readDailyName() === "Player" ? "" : WW.readDailyName();
@@ -787,12 +788,47 @@
     }
   }
 
+  function clearDailyNameError() {
+    const input = document.getElementById("daily-name-input");
+    const errorEl = document.getElementById("daily-name-error");
+    if (input) {
+      input.classList.remove("is-invalid");
+      input.removeAttribute("aria-invalid");
+    }
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = "";
+    }
+  }
+
+  function showDailyNameError(message) {
+    const input = document.getElementById("daily-name-input");
+    const errorEl = document.getElementById("daily-name-error");
+    if (input) {
+      input.classList.add("is-invalid");
+      input.setAttribute("aria-invalid", "true");
+      input.focus();
+    }
+    if (errorEl) {
+      errorEl.hidden = false;
+      errorEl.textContent =
+        message || WW.DAILY_NAME_TOO_SHORT;
+    }
+  }
+
   function startDailyPlay() {
     const puzzle = currentDailyPuzzle();
     if (WW.readDailyBest(puzzle.dateKey)) {
       enterDailyIntro();
       return;
     }
+    const input = document.getElementById("daily-name-input");
+    const checked = WW.validateDailyName(input && input.value);
+    if (!checked.ok) {
+      showDailyNameError(checked.message);
+      return;
+    }
+    clearDailyNameError();
     const name = dailyNameValue();
     flow = "daily";
     state = WW.createDailyPlayState(puzzle, name);
@@ -3967,6 +4003,7 @@
     dailyPlayBtn.addEventListener("click", startDailyPlay);
   }
   if (dailyNameInput) {
+    dailyNameInput.addEventListener("input", clearDailyNameError);
     dailyNameInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") {
         event.preventDefault();

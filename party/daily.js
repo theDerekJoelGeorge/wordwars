@@ -122,6 +122,16 @@ export default class DailyServer {
     }
 
     const puzzle = this.puzzle();
+    const nameCheck = WW().validateDailyName(msg.name);
+    if (!nameCheck.ok) {
+      this.send(sender, {
+        type: "ERROR",
+        code: nameCheck.reason || "name",
+        message: nameCheck.message || WW().DAILY_NAME_TOO_SHORT,
+      });
+      return;
+    }
+
     const checked = WW().validateDailyWord(msg.word, puzzle);
     if (!checked.ok) {
       this.send(sender, {
@@ -134,7 +144,7 @@ export default class DailyServer {
 
     const entries = await this.loadEntries();
     const applied = WW().applyDailyBest(entries, deviceId, {
-      name: msg.name,
+      name: nameCheck.name,
       word: checked.word,
       score: checked.score,
       at: Date.now(),
