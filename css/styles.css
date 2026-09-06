@@ -4622,4 +4622,10 @@ body.is-daily #screen-play.is-active {
   color: var(--amber-text);
 }
 
+#daily-rank-list li.is-you:first-child {
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.15rem;
+  border-bottom: 1px solid var(--track);
+}
+
 

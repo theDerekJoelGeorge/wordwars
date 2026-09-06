@@ -813,18 +813,16 @@
         ? best.bestScore
         : best && best.score;
     const url =
-      window.location.origin + window.location.pathname + "?daily=1";
-    const text = score
-      ? "My word scored " +
-        score +
-        " points on worsus today. Try to beat my score: " +
-        url
-      : "Play today’s worsus daily: " + url;
-    const payload = {
-      title: "worsus daily",
-      text: text,
-      url: url,
-    };
+      window.location.origin.replace(/\/$/, "") +
+      (window.location.pathname || "/") +
+      "?daily=1";
+    const text =
+      score != null
+        ? "My word scored " +
+          score +
+          " points on worsus today. Try to beat my score: " +
+          url
+        : "Play today’s worsus daily: " + url;
     const label = document.getElementById("daily-share-label");
     const done = function (copied) {
       if (!label) return;
@@ -834,19 +832,51 @@
         label.textContent = "Share";
       }, 1400);
     };
-    if (navigator.share) {
+    const copyText = function () {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          function () {
+            done(true);
+          },
+          function () {
+            fallbackCopy(text) && done(true);
+          }
+        );
+        return;
+      }
+      if (fallbackCopy(text)) done(true);
+    };
+    // Share only `text` (message + link). A separate `url`/`title` often
+    // blanks the body in iOS/Android share sheets.
+    if (typeof navigator.share === "function") {
       navigator
-        .share(payload)
+        .share({ text: text })
         .then(function () {
           done(false);
         })
-        .catch(function () {});
+        .catch(function (err) {
+          if (err && err.name === "AbortError") return;
+          copyText();
+        });
       return;
     }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () {
-        done(true);
-      });
+    copyText();
+  }
+
+  function fallbackCopy(value) {
+    try {
+      const area = document.createElement("textarea");
+      area.value = value;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.left = "-9999px";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(area);
+      return ok;
+    } catch (_err) {
+      return false;
     }
   }
 
@@ -1016,28 +1046,42 @@
     const showWord = (last.word || (best && best.word) || "").toUpperCase();
     const showScore =
       last.score != null ? last.score : best ? best.score : 0;
+    const youRank =
+      (dailyBoard.you && dailyBoard.you.rank) ||
+      (dailyBoard.ranks || []).reduce(function (found, row) {
+        return row.you ? row.rank : found;
+      }, 0);
     if (titleEl) titleEl.textContent = showScore + " points";
     if (lineEl) {
       paintDailyScoreLine(lineEl, showWord, showScore, puzzle);
     }
     if (noteEl) {
-      noteEl.textContent = "One word per device today.";
+      noteEl.textContent = youRank
+        ? "Congratulations, your word was ranked " +
+          youRank +
+          " amidst all the players today."
+        : showWord
+          ? "Congratulations, your word is locked in for today."
+          : "Play today’s puzzle to join the leaderboard.";
     }
     if (listEl) {
       const ranks = dailyBoard.ranks || [];
-      if (!ranks.length) {
-        listEl.innerHTML = "";
-      } else {
-        listEl.innerHTML = ranks.map(dailyRankItemHtml).join("");
-        if (
-          dailyBoard.you &&
-          dailyBoard.you.rank > WW.DAILY_LEADERBOARD_SIZE
-        ) {
-          listEl.innerHTML += dailyRankItemHtml(
-            Object.assign({ you: true }, dailyBoard.you)
-          );
-        }
+      const youRow =
+        dailyBoard.you ||
+        (showWord
+          ? {
+              rank: youRank || "—",
+              name: dailyNameValue(),
+              word: showWord.toLowerCase(),
+              score: showScore,
+            }
+          : null);
+      let html = "";
+      if (youRow) {
+        html += dailyRankItemHtml(Object.assign({}, youRow, { you: true }));
       }
+      html += ranks.map(dailyRankItemHtml).join("");
+      listEl.innerHTML = html;
     }
     if (statusEl) {
       const offline = !dailyNet.connected() && !dailyBoard.ranks.length;
