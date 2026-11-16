@@ -13,15 +13,21 @@ const RATE_WINDOW_MS = 20000;
 const RATE_MAX = 8;
 
 export default class DailyServer {
-  options = { hibernate: true };
-
-  constructor(room) {
-    this.room = room;
+  constructor(server) {
+    this.server = server;
     this.hits = new Map();
   }
 
+  get id() {
+    return this.server.name;
+  }
+
+  get storage() {
+    return this.server.ctx.storage;
+  }
+
   dateKey() {
-    return WW().dateKeyFromRoomId(this.room.id) || WW().dailyDateKey();
+    return WW().dateKeyFromRoomId(this.id) || WW().dailyDateKey();
   }
 
   puzzle() {
@@ -29,7 +35,7 @@ export default class DailyServer {
   }
 
   async loadEntries() {
-    const stored = await this.room.storage.get("entries");
+    const stored = await this.storage.get("entries");
     return stored && typeof stored === "object" ? stored : {};
   }
 
@@ -150,7 +156,7 @@ export default class DailyServer {
       at: Date.now(),
     });
     if (applied.improved) {
-      await this.room.storage.put("entries", applied.entries);
+      await this.storage.put("entries", applied.entries);
     }
     const board = WW().rankDailyEntries(applied.entries, deviceId);
     this.send(sender, {

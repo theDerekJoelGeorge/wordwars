@@ -2,15 +2,23 @@
   const WW = root.WordWars || (root.WordWars = {});
 
   WW.partyHost = function partyHost() {
-    if (typeof window === "undefined") return "127.0.0.1:1999";
+    if (typeof window === "undefined") return "127.0.0.1:8787";
     if (window.WORDSUS_PARTY_HOST) return window.WORDSUS_PARTY_HOST;
     const host = window.location.hostname;
     if (host === "localhost" || host === "127.0.0.1") {
-      if (window.location.port === "1999") return window.location.host;
-      return "127.0.0.1:1999";
+      if (window.location.port === "8787" || window.location.port === "1999") {
+        return window.location.host;
+      }
+      return "127.0.0.1:8787";
     }
-    if (host.indexOf("partykit.dev") !== -1) return window.location.host;
-    return "wordsus.thederekjoelgeorge.partykit.dev";
+    if (
+      host.indexOf("workers.dev") !== -1 ||
+      host.indexOf("partykit.dev") !== -1
+    ) {
+      return window.location.host;
+    }
+    // PartyServer on Cloudflare Workers (replaces hosted PartyKit).
+    return "wordsus.derekjoelgeorge.workers.dev";
   };
 
   function partySocketUrl(party, roomId) {
@@ -173,7 +181,7 @@
         if (closed) return;
         emitError({
           code: "socket",
-          message: "Could not reach the room. Is partykit running?",
+          message: "Could not reach the room. Is the multiplayer server running?",
         });
       };
     }

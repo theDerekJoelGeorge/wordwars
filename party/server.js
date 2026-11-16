@@ -1,3 +1,4 @@
+import { routePartykitRequest, Server } from "partyserver";
 import "../js/words.js";
 import "../js/scoring.js";
 import "../js/dictionary.js";
@@ -15,29 +16,33 @@ function isDailyRoom(id) {
   return Boolean(WW().dateKeyFromRoomId(id));
 }
 
-export default class TableServer {
-  options = { hibernate: false };
+export class Main extends Server {
+  static options = { hibernate: false };
 
-  constructor(room) {
-    this.room = room;
+  constructor(ctx, env) {
+    super(ctx, env);
     this.table = null;
-    this.daily = isDailyRoom(room.id) ? new DailyServer(room) : null;
+    this.daily = null;
+  }
+
+  onStart() {
+    this.daily = isDailyRoom(this.name) ? new DailyServer(this) : null;
   }
 
   ensureTable() {
     if (this.table) return this.table;
     const self = this;
     this.table = WW().createTable({
-      code: this.room.id,
+      code: this.name,
       now: function () {
         return Date.now();
       },
       send: function (connId, msg) {
-        const conn = self.room.getConnection(connId);
+        const conn = self.getConnection(connId);
         if (conn) conn.send(JSON.stringify(msg));
       },
       close: function (connId) {
-        const conn = self.room.getConnection(connId);
+        const conn = self.getConnection(connId);
         if (conn) conn.close();
       },
     });
@@ -45,23 +50,26 @@ export default class TableServer {
   }
 
   onConnect(conn) {
+    if (!this.daily && isDailyRoom(this.name)) {
+      this.daily = new DailyServer(this);
+    }
     if (this.daily) return this.daily.onConnect(conn);
     conn.send(
       JSON.stringify({
         type: "HELLO",
-        code: WW().normalizeRoomCode(this.room.id),
+        code: WW().normalizeRoomCode(this.name),
       })
     );
   }
 
-  onMessage(message, sender) {
-    if (this.daily) return this.daily.onMessage(message, sender);
+  onMessage(conn, message) {
+    if (this.daily) return this.daily.onMessage(message, conn);
     let msg = message;
     if (typeof message === "string") {
       try {
         msg = JSON.parse(message);
       } catch (err) {
-        sender.send(
+        conn.send(
           JSON.stringify({
             type: "ERROR",
             code: "bad",
@@ -71,7 +79,7 @@ export default class TableServer {
         return;
       }
     }
-    this.ensureTable().handleMessage(sender.id, msg);
+    this.ensureTable().handleMessage(conn.id, msg);
   }
 
   onClose(conn) {
@@ -79,3 +87,12 @@ export default class TableServer {
     if (this.table) this.table.handleClose(conn.id);
   }
 }
+
+export default {
+  async fetch(request, env) {
+    return (
+      (await routePartykitRequest(request, env)) ||
+      new Response("Not Found", { status: 404 })
+    );
+  },
+};
